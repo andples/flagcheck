@@ -1,0 +1,9 @@
+[workspace]
+resolver = "3"
+members = ["server"]
+exclude = ["zed"]
+
+[workspace.package]
+edition = "2024"
+license = "MIT"
+publish = false
