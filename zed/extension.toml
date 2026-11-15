@@ -1,0 +1,13 @@
+id = "flagcheck"
+name = "flagcheck"
+version = "0.1.0"
+schema_version = 1
+authors = ["andples"]
+description = "Flag-only LLM spelling and grammar checker for Markdown, LaTeX and Typst"
+repository = "https://github.com/andples/flagcheck"
+
+[language_servers.flagcheck]
+name = "flagcheck"
+# Names must match each language's config.toml. LaTeX and Typst come from
+# their own extensions (rzukic/zed-latex, zed-extensions/typst).
+languages = ["Markdown", "LaTeX", "Typst"]

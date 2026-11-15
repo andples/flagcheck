@@ -127,7 +127,11 @@ Passed as LSP `initializationOptions` (Zed: `lsp.flagcheck.initialization_option
 | `severity`     | `"information"` (`"hint"`) |
 | `votes`        | `1`                 |
 | `vote_min`     | `1`                 |
-| `context`      | `"document"` (`"paragraph"`, `"sentence"`) |
+| `context`      | `"document"` (`"paragraph"`; `"sentence"` planned for E4) |
+| `batch`        | `16` paragraphs per request |
+| `concurrency`  | `4` requests in flight |
+| `max_tokens`   | `8000`              |
+| `json_mode`    | `"schema"` (`"object"`, `"none"`; OpenAI-compatible only) |
 | `log_path`     | unset (JSONL of requests/responses for evaluation) |
 
 Per-project state lives in `.flagcheck/` at the workspace root:
