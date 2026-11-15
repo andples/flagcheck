@@ -6,3 +6,6 @@ pub mod sanitize;
 pub mod backend;
 pub mod config;
 pub mod prompt;
+pub mod checker;
+pub mod doc;
+pub mod store;
