@@ -9,3 +9,4 @@ pub mod prompt;
 pub mod checker;
 pub mod doc;
 pub mod store;
+pub mod server;
