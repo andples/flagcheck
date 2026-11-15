@@ -1,0 +1,9 @@
+/target
+/zed/target
+*.wasm
+.env
+.env.*
+*.key
+/bench/data/
+/bench/runs/
+/.flagcheck/
