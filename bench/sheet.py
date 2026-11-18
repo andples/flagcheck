@@ -1,0 +1,106 @@
+#!/usr/bin/env python3
+"""Build a blind labelling sheet for flags on the clean papers (E1 precision).
+
+Flags from each tool (after the shared markup filter) are sampled, pooled,
+merged where spans overlap, and shuffled. The sheet shows only the paper
+and the source around the span; which tools raised each item is kept in a
+separate key file the labeller should not open.
+
+Labels:  G genuine error   O optional or style   F false   M markup artefact
+
+Usage: bench/sheet.py RUN_NAME [--per-tool 60] [--seed 1]
+Writes bench/runs/<run>/sheet.csv and sheet_key.json.
+"""
+
+import argparse
+import csv
+import json
+import random
+import re
+from pathlib import Path
+
+from score import DATA, load, mask_filter, overlaps
+
+ROOT = Path(__file__).resolve().parent
+CONTEXT = 140
+
+
+def tool_groups(run: Path) -> dict[str, list[str]]:
+    """Repeated flagcheck runs are pooled as one tool."""
+    groups: dict[str, list[str]] = {}
+    for d in sorted(run.iterdir()):
+        if (d / "clean").is_dir():
+            name = "flagcheck" if re.fullmatch(r"flagcheck-r\d+", d.name) else d.name
+            groups.setdefault(name, []).append(d.name)
+    return groups
+
+
+def main() -> None:
+    ap = argparse.ArgumentParser()
+    ap.add_argument("run")
+    ap.add_argument("--per-tool", type=int, default=60)
+    ap.add_argument("--seed", type=int, default=1)
+    args = ap.parse_args()
+    run = ROOT / "runs" / args.run
+    rng = random.Random(args.seed)
+    papers = [p["file"] for p in json.loads((ROOT / "corpus" / "manifest.json").read_text())["papers"]]
+
+    # Every (tool, paper, flag) after the markup filter.
+    pool: dict[str, list[tuple[str, dict]]] = {}
+    for tool, dirs in tool_groups(run).items():
+        items = []
+        for paper in papers:
+            for d in dirs:
+                for f in mask_filter(load(run / d / "clean" / f"{paper}.jsonl"), DATA / "papers" / paper):
+                    items.append((paper, {**f, "run": d}))
+        pool[tool] = items
+
+    # Sample per tool, then merge overlapping spans across tools.
+    picked: list[tuple[str, dict, str]] = []
+    for tool, items in pool.items():
+        for paper, f in rng.sample(items, min(args.per_tool, len(items))):
+            picked.append((paper, f, tool))
+    merged: list[dict] = []
+    for paper, f, tool in picked:
+        for m in merged:
+            if m["paper"] == paper and overlaps(m, f):
+                m["start"], m["end"] = min(m["start"], f["start"]), max(m["end"], f["end"])
+                m["tools"].add(tool)
+                break
+        else:
+            merged.append({"paper": paper, "start": f["start"], "end": f["end"], "tools": {tool}})
+    # Record every tool (sampled or not) whose flags overlap each item, so
+    # labels can be reused for all tools.
+    for m in merged:
+        for tool, items in pool.items():
+            runs = {f["run"] for p, f in items if p == m["paper"] and overlaps(f, m)}
+            if runs:
+                m["tools"].add(tool)
+                m.setdefault("runs", {})[tool] = sorted(runs)
+    rng.shuffle(merged)
+
+    rows, key = [], {}
+    for i, m in enumerate(merged, 1):
+        text = (DATA / "papers" / m["paper"]).read_bytes()
+        a, b = m["start"], m["end"]
+        ctx = (
+            text[max(0, a - CONTEXT) : a].decode(errors="replace")
+            + " ⟦"
+            + text[a:b].decode(errors="replace")
+            + "⟧ "
+            + text[b : b + CONTEXT].decode(errors="replace")
+        ).replace("\n", " ⏎ ")
+        iid = f"{i:04d}"
+        rows.append({"id": iid, "paper": m["paper"].removesuffix(".tex"), "context": ctx, "label": "", "note": ""})
+        key[iid] = {"paper": m["paper"], "start": a, "end": b, "tools": sorted(m["tools"]), "runs": m.get("runs", {})}
+
+    with open(run / "sheet.csv", "w", newline="") as fh:
+        w = csv.DictWriter(fh, fieldnames=["id", "paper", "context", "label", "note"])
+        w.writeheader()
+        w.writerows(rows)
+    (run / "sheet_key.json").write_text(json.dumps(key, indent=1) + "\n")
+    print(f"{len(rows)} items; per tool available: " + ", ".join(f"{t} {len(v)}" for t, v in pool.items()))
+
+
+if __name__ == "__main__":
+    main()
