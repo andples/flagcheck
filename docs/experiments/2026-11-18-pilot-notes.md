@@ -30,3 +30,26 @@ Reading: untuned, the LLM raises about half the false flags. With a small
 dictionary, Harper matches its precision on spelling. The case for the LLM
 is then grammar plus no setup, not raw precision. E1 must report tuned
 baselines; this pilot shows why.
+
+## Prompt v2 sweep (same file, 3 runs each, same labelling)
+
+| Config | Found (of 19) | False | Precision |
+|---|---|---|---|
+| effort low, thinking off | 17 / 17 / 16 | 7 / 7 / 7 | ~70 % |
+| low, thinking off, 2-of-3 vote (simulated) | 17 | 5 | 74-78 % |
+| low, adaptive thinking | 10 / 11 / 16 | 1 / 1 / 4 | 76-92 % |
+| medium, thinking off | 16 / 16 / 17 | 8 / 4 / 6 | 67-81 % |
+| medium, thinking off + shape filters (simulated) | 16 / 16 / 17 | 5 / 2 / 4 | 76-89 % |
+
+- Adaptive thinking: in 2 of 3 runs the last batch came back almost empty
+  (thinking tokens 0, one placeholder flag). Unstable; kept off.
+- Recurring false flags with thinking off: "Frame stacking" as spelling
+  (every run), `randomises`/`generalise` as "spelling variant
+  inconsistent" (prompt v2 rule ignored), whole-sentence quotes. The shape
+  filters (multi-word spelling, variety reasons, quotes over 6 words)
+  remove them; cost at most one genuine flag per run.
+- Medium found 16 errors in every run (most stable); latency 1.2-2.6 s per
+  request, same as low. New default: medium, thinking off, filters on.
+- Never found in any config: `agents` for `agents'`. Rarely: the missing
+  `it` in "is instead up to".
+- Cost of all 15 runs: about 2 cents.

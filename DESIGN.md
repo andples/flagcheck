@@ -106,7 +106,7 @@ in at least m of them. Default k = 1.
 | `mock`      | none                          | deterministic, for tests and demos |
 
 Anthropic request: `output_config.format` JSON schema, `output_config.effort`
-(default `low`), thinking disabled by default (allowed at effort `high` and
+(default `medium`), thinking disabled by default (allowed at effort `high` and
 below; with thinking, live checks took 4-9 s instead of 1.6-3 s), no sampling parameters (Haiku 5.5 rejects them). API keys are read
 from environment variables only and never written to logs.
 
@@ -132,7 +132,7 @@ Passed as LSP `initializationOptions` (Zed: `lsp.flagcheck.initialization_option
 | `model`        | `"claude-haiku-5-5"`|
 | `base_url`     | backend default     |
 | `api_key_env`  | `ANTHROPIC_API_KEY` / `OPENAI_API_KEY` |
-| `effort`       | `"low"`             |
+| `effort`       | `"medium"`          |
 | `thinking`     | `"disabled"` (`"adaptive"`) |
 | `debounce_ms`  | `1500`              |
 | `reasons`      | `"short"` (`"category"`, `"none"`) |

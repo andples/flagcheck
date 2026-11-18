@@ -111,7 +111,9 @@ impl Settings {
     pub fn effort(&self) -> Option<String> {
         match (&self.effort, self.backend) {
             (Some(e), _) => Some(e.clone()),
-            (None, BackendKind::Anthropic) => Some("low".into()),
+            // Pilot (docs/experiments): medium with thinking off was the most
+            // stable configuration at the same latency as low.
+            (None, BackendKind::Anthropic) => Some("medium".into()),
             _ => None,
         }
     }

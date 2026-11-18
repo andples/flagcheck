@@ -142,7 +142,7 @@ mod tests {
         };
         let b = a.body(&req);
         assert_eq!(b["model"], "claude-haiku-5-5");
-        assert_eq!(b["output_config"]["effort"], "low");
+        assert_eq!(b["output_config"]["effort"], "medium");
         assert_eq!(b["output_config"]["format"]["type"], "json_schema");
         assert!(b.get("temperature").is_none());
         assert_eq!(b["thinking"]["type"], "disabled");
