@@ -5,7 +5,7 @@ use crate::flag::Category;
 use crate::markup::Lang;
 use serde_json::{Value, json};
 
-pub const PROMPT_VERSION: u32 = 1;
+pub const PROMPT_VERSION: u32 = 2;
 
 pub const SYSTEM: &str = "\
 You locate spelling and grammar errors. You never correct them.
@@ -20,7 +20,10 @@ wrong word forms, subject-verb agreement, tense, articles, prepositions, \
 missing, doubled or extra words, and clearly wrong punctuation. Do not report \
 style, tone, wording preferences, sentence length, passive voice, or anything \
 that is acceptable as written. Technical terms, names, acronyms, code \
-identifiers and notation are not errors. When unsure, do not report.
+identifiers and notation are not errors. British and American spellings are \
+both correct; never report one as a misspelling of the other. Report a word \
+choice only when the word is clearly wrong (for example a confused homophone), \
+never because another word would be better. When unsure, do not report.
 
 Markup is not prose. Never report anything inside commands, maths, code, \
 citations, labels, references, URLs or comments.

@@ -22,6 +22,9 @@ pub enum Category {
 }
 
 impl Category {
+    /// Categories the model may use. `Other` is deliberately absent: it
+    /// invited style comments. Replies that still use an unknown category
+    /// parse as `Other` and are dropped.
     pub const ALL: &[&str] = &[
         "spelling",
         "grammar",
@@ -34,7 +37,6 @@ impl Category {
         "repetition",
         "missing-word",
         "extra-word",
-        "other",
     ];
 
     pub fn label(self) -> &'static str {

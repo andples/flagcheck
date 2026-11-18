@@ -108,7 +108,8 @@ from environment variables only and never written to logs.
 
 Categories: `spelling`, `grammar`, `agreement`, `tense`, `article`,
 `preposition`, `punctuation`, `word-choice`, `repetition`, `missing-word`,
-`extra-word`, `other`.
+`extra-word`. There is no `other`: it invited style comments, and replies
+that use an unknown category are dropped.
 
 ## Settings
 

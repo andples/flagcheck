@@ -101,6 +101,9 @@ fn place(
     if !ids.contains(&raw.paragraph) {
         return Err("unknown paragraph");
     }
+    if raw.category == Category::Other {
+        return Err("no category");
+    }
     let pr = seg.paragraphs[raw.paragraph].clone();
     let par = &text[pr.clone()];
     let range = match anchor(par, &raw.quote, &raw.before) {
