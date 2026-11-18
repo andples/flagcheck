@@ -23,7 +23,8 @@ options:
   --votes K --vote-min M
   --settings JSON      any setting, e.g. '{\"base_url\":\"http://localhost:11434/v1\"}'
   --json               JSON lines with byte offsets
-  --verbose            also print dropped quotes and usage";
+  --verbose            also print dropped quotes and usage
+  --log PATH           append raw model replies, usage and drops as JSON lines";
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -82,6 +83,7 @@ async fn check(args: &[String]) -> Result<()> {
     let mut settings = serde_json::Map::new();
     let mut files = vec![];
     let (mut json, mut verbose) = (false, false);
+    let mut log: Option<std::fs::File> = None;
     let mut it = args.iter();
     while let Some(a) = it.next() {
         let mut val = |name: &str| -> Result<String> {
@@ -104,6 +106,16 @@ async fn check(args: &[String]) -> Result<()> {
             }
             "--json" => json = true,
             "--verbose" => verbose = true,
+            "--log" => {
+                let p = val(a)?;
+                log = Some(
+                    std::fs::OpenOptions::new()
+                        .create(true)
+                        .append(true)
+                        .open(&p)
+                        .with_context(|| format!("opening {p}"))?,
+                );
+            }
             f if f.starts_with("--") => bail!("unknown option {f}\n{USAGE}"),
             f => files.push(f.to_string()),
         }
@@ -173,6 +185,23 @@ async fn check(args: &[String]) -> Result<()> {
                         );
                     }
                 }
+            }
+            if let Some(f) = log.as_mut() {
+                use std::io::Write;
+                writeln!(
+                    f,
+                    "{}",
+                    serde_json::json!({
+                        "file": file,
+                        "settings": settings.fingerprint(),
+                        "paragraphs": chunk,
+                        "context_bytes": context.as_ref().map(|c| c.len()),
+                        "latency_ms": out.latency_ms,
+                        "usage": out.replies.iter().map(|r| r.usage.clone()).collect::<Vec<_>>(),
+                        "raw": out.replies.iter().map(|r| r.raw.clone()).collect::<Vec<_>>(),
+                        "dropped": out.dropped,
+                    })
+                )?;
             }
             if verbose {
                 for d in &out.dropped {
