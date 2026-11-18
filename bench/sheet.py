@@ -43,6 +43,7 @@ def main() -> None:
     ap.add_argument("run")
     ap.add_argument("--per-tool", type=int, default=60)
     ap.add_argument("--seed", type=int, default=1)
+    ap.add_argument("--key-only", action="store_true", help="rewrite only sheet_key.json")
     args = ap.parse_args()
     run = ROOT / "runs" / args.run
     rng = random.Random(args.seed)
@@ -71,7 +72,9 @@ def main() -> None:
                 m["tools"].add(tool)
                 break
         else:
-            merged.append({"paper": paper, "start": f["start"], "end": f["end"], "tools": {tool}})
+            merged.append({"paper": paper, "start": f["start"], "end": f["end"], "tools": {tool}, "sampled_by": set()})
+            m = merged[-1]
+        m["sampled_by"].add(tool)
     # Record every tool (sampled or not) whose flags overlap each item, so
     # labels can be reused for all tools.
     for m in merged:
@@ -95,12 +98,23 @@ def main() -> None:
         ).replace("\n", " ⏎ ")
         iid = f"{i:04d}"
         rows.append({"id": iid, "paper": m["paper"].removesuffix(".tex"), "context": ctx, "label": "", "note": ""})
-        key[iid] = {"paper": m["paper"], "start": a, "end": b, "tools": sorted(m["tools"]), "runs": m.get("runs", {})}
+        key[iid] = {
+            "paper": m["paper"],
+            "start": a,
+            "end": b,
+            "tools": sorted(m["tools"]),
+            "sampled_by": sorted(m["sampled_by"]),
+            "runs": m.get("runs", {}),
+        }
 
-    with open(run / "sheet.csv", "w", newline="") as fh:
-        w = csv.DictWriter(fh, fieldnames=["id", "paper", "context", "label", "note"])
-        w.writeheader()
-        w.writerows(rows)
+    if args.key_only:
+        old = list(csv.DictReader(open(run / "sheet.csv")))
+        assert [(r["id"], r["context"]) for r in old] == [(r["id"], r["context"]) for r in rows], "sheet would change"
+    else:
+        with open(run / "sheet.csv", "w", newline="") as fh:
+            w = csv.DictWriter(fh, fieldnames=["id", "paper", "context", "label", "note"])
+            w.writeheader()
+            w.writerows(rows)
     (run / "sheet_key.json").write_text(json.dumps(key, indent=1) + "\n")
     print(f"{len(rows)} items; per tool available: " + ", ".join(f"{t} {len(v)}" for t, v in pool.items()))
 
