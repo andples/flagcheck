@@ -53,3 +53,17 @@ baselines; this pilot shows why.
 - Never found in any config: `agents` for `agents'`. Rarely: the missing
   `it` in "is instead up to".
 - Cost of all 15 runs: about 2 cents.
+
+## Real runs of the new default (medium, thinking off, filters)
+
+| Run | Found | Optional | False | Precision |
+|---|---|---|---|---|
+| 1 | 15 | 2 | 6 | 65-74 % |
+| 2 | 15 | 1 | 4 | 71-76 % |
+
+Worse than the simulation (filters applied to earlier outputs). The model
+now quoted `Frame` alone, and several false flags carry a category that
+contradicts the reason ("spelling: wrong word choice", "spelling:
+unnecessary colon"). Run-to-run spread (about 65-80 % precision, 15-17
+found) is as large as the differences between configurations, so one file
+cannot rank them. Stop tuning on this file; tune on the benchmark.
