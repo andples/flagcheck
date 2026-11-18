@@ -8,6 +8,7 @@ use flagcheck::doc::Doc;
 use flagcheck::markup::Lang;
 use flagcheck::position::Encoding;
 use flagcheck::{backend, checker};
+use futures::StreamExt;
 
 const USAGE: &str = "\
 usage:
@@ -148,18 +149,33 @@ async fn check(args: &[String]) -> Result<()> {
                     .collect::<Vec<_>>()
             })
             .collect();
-        for (context, chunk) in &batches {
-            let chunk = chunk.as_slice();
-            let out = checker::check(
-                backend.as_ref(),
-                &settings,
-                lang,
-                context.clone(),
-                &doc.text,
-                &doc.seg,
-                chunk,
+        // As in the server: the first batch for each context runs alone so
+        // it writes the prompt cache, then the rest run in parallel.
+        let run_one = |context: Option<String>, chunk: Vec<usize>| {
+            let (backend, settings, doc) = (&backend, &settings, &doc);
+            async move {
+                checker::check(backend.as_ref(), settings, lang, context, &doc.text, &doc.seg, &chunk).await
+            }
+        };
+        let mut results = Vec::with_capacity(batches.len());
+        let mut k = 0;
+        while k < batches.len() {
+            let ctx = &batches[k].0;
+            let end = (k..batches.len()).find(|&j| &batches[j].0 != ctx).unwrap_or(batches.len());
+            results.push(run_one(batches[k].0.clone(), batches[k].1.clone()).await?);
+            let rest: Vec<_> = futures::stream::iter(
+                batches[k + 1..end].iter().map(|(c, ch)| run_one(c.clone(), ch.clone())),
             )
-            .await?;
+            .buffered(settings.concurrency.max(1))
+            .collect()
+            .await;
+            for r in rest {
+                results.push(r?);
+            }
+            k = end;
+        }
+        for ((context, chunk), out) in batches.iter().zip(results) {
+            let chunk = chunk.as_slice();
             for (i, flags) in &out.flags {
                 let base = doc.seg.paragraphs[*i].start;
                 for f in flags {
