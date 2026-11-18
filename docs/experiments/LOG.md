@@ -220,3 +220,44 @@ pilots that shaped the tool, not as results.
   tool from masked clean flags, overlapping spans merged, shuffled,
   seed 1). Pool sizes: flagcheck 794 (3 runs), harper-tuned 1,089,
   harper-us 1,983. Key in `sheet_key.json` (labeller must not open).
+
+## R1b - LTeX+ added to R1 (2026-11-18, Claude)
+
+- Commit 8345871. ltex-ls-plus 18.7.0 (bundled Java), driven through its
+  language server (`bench/ltex.py`) for exact ranges; the CLI prints only
+  start positions. Check: language-server diagnostic counts match the CLI.
+- `ltex-default` = en-US, no dictionary. `ltex-tuned` = en-US or en-GB,
+  whichever gives fewer diagnostics on the clean paper (en-GB for 2
+  papers, the same 2 as Harper), plus a dictionary of words flagged as
+  misspellings at least twice in the clean paper (8-37 words). Cost $0.
+
+  | tool | recall | clean flags / 1k words (masked) |
+  |---|---|---|
+  | flagcheck r1 / r2 / r3 | 0.72 / 0.78 / 0.75 | 4.2 / 3.4 / 4.0 |
+  | ltex-default | 0.76 | 22.7 |
+  | ltex-tuned | 0.76 | 10.4 |
+  | harper-tuned | 0.42 | 16.0 |
+  | harper-us | 0.42 | 29.1 |
+
+  Recall by type, flagcheck (3 runs) vs LTeX+:
+
+  | type | flagcheck | LTeX+ |
+  |---|---|---|
+  | agreement | 29-36 /55 | 12/55 |
+  | homophone | 18-22 /26 | 16/26 |
+  | article | 13-17 /25 | 25/25 |
+  | repetition | 15-19 /25 | 22/25 |
+  | spelling (3 operators) | 119-128 /147 | 135/147 |
+
+- Overall recall is the same as LTeX+. LTeX+ wins on mechanical errors
+  (a/an, doubled words, non-words); flagcheck wins on agreement. The tools
+  miss different errors, so a union would beat both (not yet computed).
+- flagcheck missing a/an errors that a rule catches 25/25 is unexpected;
+  inspect the misses before the next run.
+- The recall advantage over rule-based checking shown against Harper does
+  not hold against LTeX+, the proper LaTeX baseline. What remains to test:
+  precision on clean text (sheet), and setup cost (default vs tuned).
+- Sheet rebuilt with LTeX+: `bench/runs/r1/sheet.csv`, 239 items, 50
+  sampled per tool (flagcheck pooled over 3 runs), seed 1. Pool sizes:
+  flagcheck 794, ltex-tuned 712, harper-tuned 1,089, ltex-default 1,548,
+  harper-us 1,983.
