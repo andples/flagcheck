@@ -314,3 +314,63 @@ pilots that shaped the tool, not as results.
   $1.03). Full row: batch 1 = recall 0.93, 8.2 clean flags per 1k words,
   against LTeX+ tuned 0.76 and 10.4. Clean flag rate by batch size:
   16: 3.4-4.2, 8: 5.2, 4: 6.8, 1: 8.2.
+
+## E6a - Invented markup format (2026-11-18, Claude)
+
+- Commits 6ffc2c5 (`bench/invent.py`), 2c7948c (runner). Run
+  `bench/runs/r2-invented/`, corpus `invented`.
+- The 10 papers (clean and injected) rewritten mechanically into a markup
+  no model has seen: every LaTeX command name becomes a fixed nonsense
+  word (`\cite` -> `◆vutor`, `\section` -> `◆rimelka`, `\emph` ->
+  `◆wimgu`), braces -> `⟨⟩`, option brackets -> `⟦⟧`, `$` -> `¤`, `&` ->
+  `¦`, `%` -> `;;`. Prose bytes unchanged; all 278 gold spans mapped and
+  verified byte-for-byte.
+- flagcheck: new `unknown` format (paragraphs at blank lines, no mask,
+  format named "unknown-format" in the prompt), batch 4, otherwise
+  defaults, 1 run. $0.47 (680 requests incl. cache writes). Harper and
+  LTeX+ in plain-text mode (Harper: "could not detect language ID; falling
+  back to PlainEnglish"; LTeX+: languageId plaintext), default and tuned
+  as in R1.
+
+  | tool | corpus | recall | clean flags / 1k words | clean flags at markup |
+  |---|---|---|---|---|
+  | flagcheck b4 | LaTeX (mask) | 0.89 | 6.8 | - |
+  | flagcheck b4 | invented (no mask) | 0.78 | 7.6 | 15 % |
+  | LTeX+ tuned | LaTeX | 0.76 | 10.4 (masked) | - |
+  | LTeX+ tuned | invented | 0.79 | 41.8 | 65 % |
+  | LTeX+ default | invented | 0.79 | 178.2 | 81 % |
+  | Harper tuned | invented | 0.83 | 63.4 | 58 % |
+  | Harper default | invented | 0.83 | 171.6 | 65 % |
+
+  "At markup" = an invented-markup character within 3 bytes of the span
+  (a proxy for markup artefacts until labelled).
+
+- On a format nobody has a parser for, rule-based checkers flag the markup:
+  LTeX+ goes from 10 to 42-178 flags per 1k words, Harper to 63-172, most
+  of them at markup. flagcheck goes from 6.8 to 7.6, 15 % at markup.
+- flagcheck's recall drops from 0.89 to 0.78 (agreement 45 -> 36, a/an
+  18 -> 14, spelling 140 -> 126 of 147). Baseline recall rises (Harper
+  0.42 -> 0.83) because in plain-text mode they check every line,
+  including the parts Harper skipped in LaTeX; their findings are buried
+  in 4-17x more flags.
+- Single runs.
+
+## A1 - Mask ablation on LaTeX (2026-11-18, Claude)
+
+- Commit 2c7948c. flagcheck batch 4 on the real LaTeX corpus with
+  `--format unknown` (no scanner, no mask), 1 run, $0.39. Run
+  `bench/runs/r1/fc-b4-nomask-r1`.
+
+  | flagcheck b4 on LaTeX | recall | clean flags / 1k (raw) | after applying the mask |
+  |---|---|---|---|
+  | with scanner and mask | 0.89 | 6.8 | 6.8 |
+  | no scanner, no mask | 0.84 | 6.55 | 6.1 |
+
+- The mask removes only about 0.45 flags per 1k words: the model itself
+  ignores LaTeX markup almost entirely. Most of flagcheck's markup
+  robustness comes from the model, not the hand-written scanner.
+- Recall falls 0.89 -> 0.84 without the scanner, probably because
+  paragraphs are then split only at blank lines (headings, list items,
+  environments merge into bigger units). Not tested further.
+- Together with E6a: on LaTeX the model alone loses 5 points of recall; on
+  an unseen format, 11 points, while flag volume stays flat.
