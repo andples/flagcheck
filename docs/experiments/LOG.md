@@ -268,3 +268,44 @@ pilots that shaped the tool, not as results.
   Hypothesis: 16 paragraphs per request makes the model skim. Test batch
   size in E4; consider a lenient "adjacent token" match as a secondary
   score.
+
+## S1 - Batch-size sweep (2026-11-18, Claude)
+
+- Commit efe8d12 (CLI now sends a file's batches in parallel after the
+  first per context; same requests and settings otherwise, checked
+  identical output with the mock backend). Defaults except `batch`. One
+  run each. Batch 16 = R1 (3 runs). Batch 1 on the injected copies only,
+  to limit cost.
+
+  | paragraphs per request | recall | clean flags / 1k | non-gold flags on injected | requests | cost |
+  |---|---|---|---|---|---|
+  | 16 (R1, 3 runs) | 0.72-0.78 | 3.4-4.2 | 115-165 | 564 (3 runs) | $0.48 (3 runs) |
+  | 8 | 0.80 | 5.2 | 190 | 366 | $0.27 |
+  | 4 | 0.89 | 6.8 | 288 | 722 | $0.32 |
+  | 1 (injected only) | 0.93 | - | 439 | 1,423 | $0.50 |
+  | LTeX+ tuned, for reference | 0.76 | 10.4 | 708 | - | - |
+
+  Recall by type:
+
+  | type | b16 (3 runs) | b8 | b4 | b1 | LTeX+ |
+  |---|---|---|---|---|---|
+  | agreement | 29-36 | 40 | 45 | 48 | 12 /55 |
+  | article | 13-17 | 13 | 18 | 20 | 25 /25 |
+  | homophone | 18-22 | 17 | 20 | 22 | 16 /26 |
+  | repetition | 15-19 | 19 | 23 | 25 | 22 /25 |
+  | spelling | 119-128 | 133 | 140 | 144 | 135 /147 |
+
+- Hypothesis from R1b confirmed: with many paragraphs per request the
+  model skims. Recall rises steadily as batches shrink; at 4 or fewer it is
+  well above LTeX+ overall and on agreement (45-48 vs 12), level or close
+  on everything else except a/an (18-20 vs 25).
+- The cost: more flags. Non-gold flags on the injected copies rise from
+  ~130 to 439; clean flags from ~4 to 6.8 per 1k words at batch 4. Whether
+  the extra flags are genuine is unknown until labelled.
+- Cache writes were 0 for b4 and b1 because the previous run had just
+  warmed the same prefixes; a cold run costs slightly more.
+- Live editing already sends only the changed paragraph (batch 1); only a
+  file's first check uses batch 16. So editor behaviour is closer to b1
+  than to the R1 default.
+- Single runs; R1's run-to-run spread at b16 was 0.72-0.78, far smaller
+  than the trend.
