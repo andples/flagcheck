@@ -76,8 +76,15 @@ discarded and the paragraph is re-queued.
 3. the paragraphs to check, with ids
 
 The snapshot is the whole document at some recent time, not at every
-keystroke: it is refreshed when it is older than 4 minutes or when more than
-20 % of its paragraphs have changed. Changed paragraphs are always sent in
+keystroke: it is refreshed when more than 20 % of its paragraphs have
+changed, or after 30 minutes. Reads keep the prompt cache alive while
+typing, so a rewrite (a full-price cache write) is rarely needed.
+
+Above `max_context_tokens` (default 60k, estimated at 3 bytes per token)
+the snapshot is cut into fixed overlapping windows, one starting every half
+window and cut at blank lines; each paragraph is checked with the window it
+starts in. Requests stay under Haiku's 100k-token price step, and each
+window is its own stable cached prefix. Changed paragraphs are always sent in
 their current form in part 3. Haiku 5.5 does not cache prefixes below 512
 tokens; short documents simply go uncached.
 
@@ -136,6 +143,7 @@ Passed as LSP `initializationOptions` (Zed: `lsp.flagcheck.initialization_option
 | `batch`        | `16` paragraphs per request |
 | `concurrency`  | `4` requests in flight |
 | `max_tokens`   | `8000`              |
+| `max_context_tokens` | `60000`       |
 | `json_mode`    | `"schema"` (`"object"`, `"none"`; OpenAI-compatible only) |
 | `log_path`     | unset (JSONL of requests/responses for evaluation) |
 

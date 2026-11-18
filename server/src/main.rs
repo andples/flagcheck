@@ -97,12 +97,25 @@ async fn check(args: &[String]) -> Result<()> {
         let lang = Lang::from_path(&file).with_context(|| format!("unknown file type: {file}"))?;
         let path = std::fs::canonicalize(&file).ok();
         let mut doc = Doc::new(lang, path, text, 0);
-        let context = match settings.context {
-            flagcheck::config::Context::Document => Some(doc.context()),
-            flagcheck::config::Context::Paragraph => None,
-        };
         let ids: Vec<usize> = (0..doc.seg.paragraphs.len()).collect();
-        for chunk in ids.chunks(settings.batch.max(1)) {
+        let groups: Vec<(Option<String>, Vec<usize>)> = match settings.context {
+            flagcheck::config::Context::Document => doc
+                .contexts(&ids, settings.max_context_tokens)
+                .into_iter()
+                .map(|(c, g)| (Some(c), g))
+                .collect(),
+            flagcheck::config::Context::Paragraph => vec![(None, ids)],
+        };
+        let batches: Vec<(Option<String>, Vec<usize>)> = groups
+            .into_iter()
+            .flat_map(|(c, g)| {
+                g.chunks(settings.batch.max(1))
+                    .map(|ch| (c.clone(), ch.to_vec()))
+                    .collect::<Vec<_>>()
+            })
+            .collect();
+        for (context, chunk) in &batches {
+            let chunk = chunk.as_slice();
             let out = checker::check(
                 backend.as_ref(),
                 &settings,

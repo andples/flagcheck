@@ -29,8 +29,16 @@ pub fn paragraph_hash(text: &str) -> u64 {
     fnv(&[text.as_bytes()])
 }
 
-const SNAPSHOT_MAX_AGE: Duration = Duration::from_secs(240);
+/// The snapshot is rewritten (a full-price cache write) only when this much
+/// of the document has changed, or when it is this old. Reads keep the
+/// prompt cache alive while typing, so age matters little.
+const SNAPSHOT_MAX_AGE: Duration = Duration::from_secs(30 * 60);
 const SNAPSHOT_MAX_CHANGED: f64 = 0.2;
+
+/// Conservative bytes-per-token estimate for sizing context windows. Real
+/// prose is closer to 3.5-4; markup and the Haiku 5.5 tokenizer push it
+/// down. Underestimating bytes per token only makes windows smaller.
+const BYTES_PER_TOKEN: usize = 3;
 
 pub struct Snapshot {
     pub text: String,
@@ -159,6 +167,40 @@ impl Doc {
     /// old or has drifted too far from the current text. A stable snapshot
     /// keeps the prompt prefix identical, so it stays in the prompt cache.
     pub fn context(&mut self) -> String {
+        self.refresh_snapshot();
+        self.snapshot.as_ref().unwrap().text.clone()
+    }
+
+    /// Group paragraphs by the context they should be checked with. When the
+    /// snapshot fits in `max_tokens` there is one group with the whole
+    /// document. Otherwise the snapshot is cut into fixed, overlapping
+    /// windows (each `max_tokens` long, starting every half window, cut at
+    /// blank lines) and each paragraph goes with the window it starts in.
+    /// Windows are fixed per snapshot, so each stays a cacheable prefix.
+    pub fn contexts(&mut self, ids: &[usize], max_tokens: usize) -> Vec<(String, Vec<usize>)> {
+        self.refresh_snapshot();
+        let snap = &self.snapshot.as_ref().unwrap().text;
+        let max_bytes = max_tokens.max(1000) * BYTES_PER_TOKEN;
+        if snap.len() <= max_bytes {
+            return vec![(snap.clone(), ids.to_vec())];
+        }
+        let half = max_bytes / 2;
+        let cur_len = self.text.len().max(1);
+        let mut groups: std::collections::BTreeMap<usize, Vec<usize>> = Default::default();
+        for &i in ids {
+            // Map the paragraph's position into the (possibly older,
+            // include-extended) snapshot proportionally.
+            let start = self.seg.paragraphs[i].start;
+            let pos = (start as u128 * self.text.len().min(snap.len()) as u128 / cur_len as u128) as usize;
+            groups.entry(pos / half).or_default().push(i);
+        }
+        groups
+            .into_iter()
+            .map(|(k, ids)| (window(snap, k * half, k * half + max_bytes), ids))
+            .collect()
+    }
+
+    fn refresh_snapshot(&mut self) {
         let fresh = self.snapshot.as_ref().is_some_and(|s| {
             let changed = self.hashes.iter().filter(|h| !s.hashes.contains(h)).count();
             s.at.elapsed() < SNAPSHOT_MAX_AGE
@@ -171,7 +213,6 @@ impl Doc {
                 at: Instant::now(),
             });
         }
-        self.snapshot.as_ref().unwrap().text.clone()
     }
 
     /// The text plus any LaTeX `\input`/`\include` files, one level deep.
@@ -191,6 +232,23 @@ impl Doc {
         }
         s
     }
+}
+
+/// A window of at most `to - from` bytes of `snap` that starts at the blank
+/// line at or before `from` and ends at a blank line, so it never starts or
+/// ends mid-paragraph and contains every paragraph starting near `from`.
+fn window(snap: &str, from: usize, to: usize) -> String {
+    let floor = |i: usize| crate::position::floor_char_boundary(snap, i.min(snap.len()));
+    let len = to - from;
+    let from = floor(from);
+    let start = snap[..from].rfind("\n\n").map(|k| k + 2).unwrap_or(0);
+    let limit = floor(start + len);
+    let end = if limit == snap.len() {
+        limit
+    } else {
+        snap[start..limit].rfind("\n\n").map(|k| start + k).unwrap_or(limit)
+    };
+    snap[start..end].to_string()
 }
 
 fn overlaps(a: &std::ops::Range<usize>, b: &std::ops::Range<usize>) -> bool {
@@ -233,6 +291,34 @@ mod tests {
         assert_eq!(p.len(), 1);
         assert_eq!(p[0].quote, "recieve");
         assert_eq!(p[0].range, 3..10);
+    }
+
+    #[test]
+    fn long_documents_get_windows() {
+        let par = "Some sentence about things here. ".repeat(30);
+        let text: String = (0..200).map(|i| format!("{i} {par}\n\n")).collect();
+        let mut d = Doc::new(Lang::Markdown, None, text.clone(), 1);
+        let ids: Vec<usize> = (0..d.seg.paragraphs.len()).collect();
+        let max_tokens = 5000;
+        let groups = d.contexts(&ids, max_tokens);
+        assert!(groups.len() > 1);
+        let mut seen = vec![];
+        for (ctx, g) in &groups {
+            assert!(ctx.len() <= max_tokens * BYTES_PER_TOKEN);
+            assert!(ctx.starts_with(|c: char| c.is_ascii_digit()), "window starts at a paragraph");
+            for &i in g {
+                // Each paragraph is inside its window.
+                assert!(ctx.contains(d.paragraph(i)), "paragraph {i}");
+                seen.push(i);
+            }
+        }
+        seen.sort();
+        assert_eq!(seen, ids);
+        // Short documents: one group, whole text.
+        let mut s = Doc::new(Lang::Markdown, None, "a b c\n\nd e f\n".into(), 1);
+        let g = s.contexts(&[0, 1], max_tokens);
+        assert_eq!(g.len(), 1);
+        assert_eq!(g[0].0, "a b c\n\nd e f\n");
     }
 
     #[test]

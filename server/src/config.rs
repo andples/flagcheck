@@ -69,6 +69,9 @@ pub struct Settings {
     /// OpenAI-compatible only: "schema" (json_schema), "object", "none".
     pub json_mode: String,
     pub max_tokens: u32,
+    /// Document context above this size is split into windows, keeping
+    /// every request below Haiku's 100k-token price step.
+    pub max_context_tokens: usize,
 }
 
 impl Default for Settings {
@@ -91,6 +94,7 @@ impl Default for Settings {
             log_path: None,
             json_mode: "schema".into(),
             max_tokens: 8000,
+            max_context_tokens: 60_000,
         }
     }
 }
@@ -125,7 +129,7 @@ impl Settings {
     /// so changing a setting never serves stale flags.
     pub fn fingerprint(&self) -> String {
         format!(
-            "p{}|{:?}|{}|{:?}|{:?}|{:?}|{}/{}",
+            "p{}|{:?}|{}|{:?}|{:?}|{:?}|{}/{}|w{}",
             crate::prompt::PROMPT_VERSION,
             self.backend,
             self.model(),
@@ -134,6 +138,7 @@ impl Settings {
             self.context,
             self.votes,
             self.vote_min,
+            self.max_context_tokens,
         )
     }
 }

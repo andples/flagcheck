@@ -238,45 +238,51 @@ async fn run(client: Client, state: Arc<Mutex<State>>, uri: Uri) {
         for (_, k) in &pending {
             st.inflight.insert(*k);
         }
+        let keys: HashMap<usize, u64> = pending.iter().copied().collect();
+        let ids: Vec<usize> = pending.iter().map(|(i, _)| *i).collect();
         let d = st.docs.get_mut(&uri).unwrap();
-        let context = match settings.context {
-            Context::Document => Some(d.context()),
-            Context::Paragraph => None,
+        let groups: Vec<(Option<String>, Vec<usize>)> = match settings.context {
+            Context::Document => d
+                .contexts(&ids, settings.max_context_tokens)
+                .into_iter()
+                .map(|(c, g)| (Some(c), g))
+                .collect(),
+            Context::Paragraph => vec![(None, ids)],
         };
-        let job = Arc::new((
-            d.text.clone(),
-            d.seg.clone(),
-            context,
-            lang,
-            settings.clone(),
-            backend,
-        ));
-        pending
-            .chunks(settings.batch.max(1))
-            .map(|c| (job.clone(), c.to_vec()))
-            .collect::<Vec<_>>()
+        let job = Arc::new((d.text.clone(), d.seg.clone(), lang, settings.clone(), backend));
+        let mut batches = vec![];
+        for (context, g) in groups {
+            let context = Arc::new(context);
+            for c in g.chunks(settings.batch.max(1)) {
+                let chunk: Vec<(usize, u64)> = c.iter().map(|i| (*i, keys[i])).collect();
+                batches.push((job.clone(), context.clone(), chunk));
+            }
+        }
+        batches
     };
 
-    // With document context, the first request writes the prompt cache.
-    // Run it alone so the other batches read the cache instead of each
-    // paying to write it again.
-    let warm_first = batches.len() > 1 && batches[0].0.2.is_some();
+    // With document context, the first request for each context window
+    // writes the prompt cache. Run it alone so the other batches of that
+    // window read the cache instead of each paying to write it again.
     let mut all_ok = true;
     let mut tasks = vec![];
-    for (n, (job, chunk)) in batches.into_iter().enumerate() {
+    let mut warmed: Vec<usize> = vec![];
+    for (job, context, chunk) in batches {
+        let warm_first = context.is_some() && !warmed.contains(&(Arc::as_ptr(&context) as usize));
+        warmed.push(Arc::as_ptr(&context) as usize);
         let client = client.clone();
         let state = state.clone();
         let uri = uri.clone();
         let handle = tokio::spawn(async move {
             let limit = state.lock().await.limit.clone();
             let _permit = limit.acquire_owned().await;
-            let (text, seg, context, lang, settings, backend) = &*job;
+            let (text, seg, lang, settings, backend) = &*job;
             let ids: Vec<usize> = chunk.iter().map(|(i, _)| *i).collect();
             let result = checker::check(
                 backend.as_ref(),
                 settings,
                 *lang,
-                context.clone(),
+                (*context).clone(),
                 text,
                 seg,
                 &ids,
@@ -332,7 +338,7 @@ async fn run(client: Client, state: Arc<Mutex<State>>, uri: Uri) {
             publish(&client, &state, &uri).await;
             ok
         });
-        if n == 0 && warm_first {
+        if warm_first {
             all_ok &= handle.await.unwrap_or(false);
         } else {
             tasks.push(handle);
