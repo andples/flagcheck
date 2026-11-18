@@ -71,7 +71,7 @@ def main() -> None:
     manifest = json.loads((ROOT / "corpus" / "manifest.json").read_text())
     papers = manifest["papers"]
     words = sum(p["prose_words"] for p in papers)
-    tools = sorted(d.name for d in run.iterdir() if (d / "clean").is_dir())
+    tools = sorted(d.name for d in run.iterdir() if (d / "clean").is_dir() or (d / "injected").is_dir())
     gold = {p["file"]: load(DATA / "injected" / (p["file"] + ".gold.jsonl")) for p in papers}
     n_gold = sum(len(g) for g in gold.values())
 
@@ -95,17 +95,25 @@ def main() -> None:
                     if any(overlaps(g, x) for x in inj):
                         found[g["type"]] += 1
                 inj_other += sum(1 for x in inj if not any(overlaps(x, g) for g in gold[f]))
+            has_clean = (run / tool / "clean").is_dir()
             t[filt] = {
                 "recall": round(sum(found.values()) / n_gold, 3),
                 "recall_by_type": {k: f"{found[k]}/{v}" for k, v in sorted(by_type.items())},
-                "clean_flags": clean_flags,
-                "clean_flags_per_1k_words": round(1000 * clean_flags / words, 2),
+                "clean_flags": clean_flags if has_clean else None,
+                "clean_flags_per_1k_words": round(1000 * clean_flags / words, 2) if has_clean else None,
                 "injected_other_flags": inj_other,
             }
         scores["tools"][tool] = t
 
-    reps = [t for t in tools if re.fullmatch(r"flagcheck-r\d+", t)]
-    if len(reps) > 1:
+    groups = collections.defaultdict(list)
+    for t in tools:
+        m = re.fullmatch(r"(.+)-r\d+", t)
+        if m:
+            groups[m.group(1)].append(t)
+    scores["variance"] = {}
+    for tag, reps in groups.items():
+        if len(reps) < 2:
+            continue
         rec = [scores["tools"][t]["masked"]["recall"] for t in reps]
         jac = []
         for i in range(len(reps)):
@@ -114,7 +122,7 @@ def main() -> None:
                     a = load(run / reps[i] / "clean" / f"{p['file']}.jsonl")
                     b = load(run / reps[j] / "clean" / f"{p['file']}.jsonl")
                     jac.append(jaccard(a, b))
-        scores["flagcheck_variance"] = {
+        scores["variance"][tag] = {
             "recall_mean": round(statistics.mean(rec), 3),
             "recall_min": min(rec),
             "recall_max": max(rec),
@@ -127,9 +135,10 @@ def main() -> None:
     for tool in tools:
         for filt in ("raw", "masked"):
             s = scores["tools"][tool][filt]
-            print(f"{tool:{w}}  {filt:6}  {s['recall']:.3f}  {s['clean_flags_per_1k_words']:8}  {s['injected_other_flags']:9}")
-    if "flagcheck_variance" in scores:
-        print("flagcheck variance:", scores["flagcheck_variance"])
+            c = s["clean_flags_per_1k_words"]
+            print(f"{tool:{w}}  {filt:6}  {s['recall']:.3f}  {'-' if c is None else c:>8}  {s['injected_other_flags']:9}")
+    for tag, v in scores["variance"].items():
+        print(f"{tag} variance:", v)
 
 
 if __name__ == "__main__":

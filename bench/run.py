@@ -57,11 +57,12 @@ def write(path: Path, flags: list[dict]) -> None:
 # --- flagcheck -------------------------------------------------------------
 
 
-def run_flagcheck(src: Path, out: Path, log: Path) -> dict:
+def run_flagcheck(src: Path, out: Path, log: Path, settings: str | None) -> dict:
     t0 = time.time()
     env = dict(os.environ)
+    extra = ["--settings", settings] if settings else []
     p = subprocess.run(
-        [FLAGCHECK, "check", "--json", "--log", log, src], capture_output=True, text=True, env=env
+        [FLAGCHECK, "check", "--json", "--log", log, *extra, src], capture_output=True, text=True, env=env
     )
     if p.returncode != 0:
         raise RuntimeError(f"flagcheck failed on {src.name}: {p.stderr[-300:]}")
@@ -154,6 +155,9 @@ def main() -> None:
     ap.add_argument("--repeats", type=int, default=3)
     ap.add_argument("--only", choices=["flagcheck", "harper"])
     ap.add_argument("--jobs", type=int, default=4)
+    ap.add_argument("--tag", default="flagcheck", help="tool name prefix, e.g. fc-b4")
+    ap.add_argument("--settings", help="JSON passed to flagcheck --settings")
+    ap.add_argument("--variants", default="clean,injected")
     args = ap.parse_args()
 
     manifest = json.loads((ROOT / "corpus" / "manifest.json").read_text())
@@ -175,17 +179,21 @@ def main() -> None:
     if args.only != "harper":
         if not os.environ.get("ANTHROPIC_API_KEY"):
             sys.exit("ANTHROPIC_API_KEY is not set")
-        meta["flagcheck"] = {
+        key = args.tag
+        fc = meta.setdefault("flagcheck_runs", {})
+        fc[key] = {
             "version": sh(FLAGCHECK, "--version").strip(),
-            "settings": "defaults (see DESIGN.md at the commit)",
+            "commit": commit(),
+            "settings": args.settings or "defaults (see DESIGN.md at the commit)",
             "repeats": args.repeats,
+            "variants": args.variants,
             "jobs": {},
         }
         jobs = []
         for r in range(1, args.repeats + 1):
-            tool = f"flagcheck-r{r}"
+            tool = f"{args.tag}-r{r}"
             for paper in papers:
-                for variant in ("clean", "injected"):
+                for variant in args.variants.split(","):
                     src = DATA / ("papers" if variant == "clean" else "injected") / paper
                     out = run_dir / tool / variant / f"{paper}.jsonl"
                     log = run_dir / tool / "logs" / variant / f"{paper}.jsonl"
@@ -195,14 +203,14 @@ def main() -> None:
                     log.unlink(missing_ok=True)
                     jobs.append((tool, variant, paper, src, out, log))
         with cf.ThreadPoolExecutor(args.jobs) as ex:
-            futs = {ex.submit(run_flagcheck, j[3], j[4], j[5]): j for j in jobs}
+            futs = {ex.submit(run_flagcheck, j[3], j[4], j[5], args.settings): j for j in jobs}
             for fut in cf.as_completed(futs):
                 tool, variant, paper, *_ = futs[fut]
                 res = fut.result()
-                meta["flagcheck"]["jobs"][f"{tool}/{variant}/{paper}"] = res
+                fc[key]["jobs"][f"{tool}/{variant}/{paper}"] = res
                 print(f"{tool} {variant} {paper}: {res['flags']} flags, {res['seconds']} s", flush=True)
-        logs = list(run_dir.glob("flagcheck-r*/logs/*/*.jsonl"))
-        meta["flagcheck"]["usage"] = usage_totals(logs)
+        logs = list(run_dir.glob(f"{args.tag}-r*/logs/*/*.jsonl"))
+        fc[key]["usage"] = usage_totals(logs)
 
     if args.only != "flagcheck":
         meta["harper"] = {"version": sh(HARPER, "--version").strip(), "papers": {}}
@@ -212,7 +220,8 @@ def main() -> None:
 
     meta["finished"] = datetime.datetime.now().isoformat(timespec="seconds")
     meta_path.write_text(json.dumps(meta, indent=1) + "\n")
-    print(json.dumps(meta.get("flagcheck", {}).get("usage", {})))
+    if args.only != "harper":
+        print(json.dumps(meta["flagcheck_runs"][args.tag]["usage"]))
 
 
 if __name__ == "__main__":
