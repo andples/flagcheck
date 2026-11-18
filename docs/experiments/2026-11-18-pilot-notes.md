@@ -1,5 +1,7 @@
 # Pilot: one Typst file, flagcheck vs Harper (2026-11-18)
 
+> Superseded by [LOG.md](LOG.md) (entries P1-P5), which also records commits and settings.
+
 Not a result. One file, one run each, labelled by Claude, not blind.
 
 File: the owner's DeepRL reading notes (Typst, 54 lines, British spelling,
