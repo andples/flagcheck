@@ -167,3 +167,56 @@ pilots that shaped the tool, not as results.
   exclude invalid items from recall.
 - Uses flagcheck's own mask to place errors. Bias: errors are never placed
   where flagcheck thinks there is markup. Same for every tool scored.
+
+## R1 - First benchmark run: flagcheck x3 and Harper on 10 papers (2026-11-18, Claude)
+
+- Commit 02b600a (server unchanged since 8f700af). Corpus C1 (10 papers,
+  68,201 prose words), injection C2 (278 errors). Outputs:
+  `bench/runs/r1/` (local), scores in `bench/runs/r1/scores.json`.
+- flagcheck: defaults (Haiku 5.5, prompt v2, effort medium, thinking off,
+  shape filters, document context, batches of 16), 3 independent runs, each
+  on the clean and the injected copy of every paper. 564 requests,
+  1.45M input + 16.7M cache-read + 0.55M cache-write + 0.20M output
+  tokens, 0 thinking tokens. Cost $0.48. Wall time 9 min (4 papers in
+  parallel).
+- Harper 3.2.0: `harper-us` = defaults; `harper-tuned` = dialect with fewer
+  lints on the clean paper (British for 2 papers) plus a per-paper
+  dictionary of every word Harper flags as a misspelling at least twice in
+  the clean paper (1-73 words per paper). Harper reads .tex as plain text
+  (no LaTeX support).
+- "masked" = the shared markup filter: a flag is removed when all its
+  letters and digits are inside flagcheck's mask. Applied to every tool.
+
+  E2 recall (injected errors found, any overlapping flag):
+
+  | tool | recall | agreement | article | homophone | repetition | spelling (all) |
+  |---|---|---|---|---|---|---|
+  | flagcheck r1 / r2 / r3 | 0.72 / 0.78 / 0.75 | 30-36 /55 | 13-17 /25 | 18-22 /26 | 15-19 /25 | 119-128 /147 |
+  | harper-us | 0.42 | 8/55 | 16/25 | 7/26 | 10/25 | 76/147 |
+  | harper-tuned | 0.42 | 8/55 | 16/25 | 7/26 | 10/25 | 76/147 |
+
+  E1 flags per 1,000 prose words on the clean papers (not yet labelled):
+
+  | tool | raw | masked |
+  |---|---|---|
+  | flagcheck (mean of 3) | 3.9 | 3.9 |
+  | harper-tuned | 22.0 | 16.0 |
+  | harper-us | 40.5 | 29.1 |
+
+- Harper stops partway on 4 papers (last lint at 0 %, 40 %, 60 %, 89 % of
+  the file); 54 of the 278 injected errors lie after that point. Example:
+  2609.39222, nothing after line 19 of 898, where author lines contain
+  `\texorpdfstring{$^{1*}$}{}`. Cause not confirmed (likely an unbalanced
+  `$` read as maths). Restricted to the text Harper checks, its recall is
+  about 117/224 = 0.52. Report both.
+- Run-to-run stability of flagcheck on the clean papers is low: mean
+  Jaccard overlap of flag sets between runs 0.105; per paper, runs share
+  2 of 10, 9 of 19-27, 4 of 22-29, 16 of 42-46 flags. Recall varies less
+  (0.72-0.78). Unchanged paragraphs are cached in the editor, so users see
+  stable flags; the benchmark sees the variance. Motivates voting (E4).
+- flagcheck raised fewer non-gold flags on the injected copies
+  (115-165) than on the clean copies (230-290). Not explained yet.
+- Labelling sheet: `bench/runs/r1/sheet.csv`, 176 items (60 sampled per
+  tool from masked clean flags, overlapping spans merged, shuffled,
+  seed 1). Pool sizes: flagcheck 794 (3 runs), harper-tuned 1,089,
+  harper-us 1,983. Key in `sheet_key.json` (labeller must not open).

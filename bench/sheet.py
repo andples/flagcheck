@@ -19,7 +19,10 @@ import random
 import re
 from pathlib import Path
 
-from score import DATA, load, mask_filter, overlaps
+import sys
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from score import DATA, load, mask_filter, overlaps  # noqa: E402
 
 ROOT = Path(__file__).resolve().parent
 CONTEXT = 140
