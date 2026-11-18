@@ -432,3 +432,31 @@ pilots that shaped the tool, not as results.
   errors are flagged consistently (matches the R1 Jaccard of 0.105).
 - Next: batch 4 with 3 runs, to measure voting where single-run recall is
   highest.
+
+## V2 - Batch 4, three runs, voting (2026-11-18, Claude)
+
+- Commit 2c7948c (defaults for .tex unchanged since efe8d12), batch 4,
+  runs r2 and r3 added to S1's r1. Cost of the two new runs $0.71 (all
+  three: $1.04, 2,166 requests). Voting output:
+  `bench/runs/r1/voting-fc-b4.json`.
+- Single runs: recall 0.885 / 0.874 / 0.856, clean flags 6.6-6.8 per 1k,
+  clean-flag Jaccard between runs 0.158.
+
+  | rule | recall | clean flags / 1k | labelled b4 sample kept (of 30) |
+  |---|---|---|---|
+  | any single run | 0.86-0.89 | 6.6-6.8 | 30 (26 F, 1 M, 2 O, 1 G) |
+  | 1 of 3 (union) | 0.92 | 15.3 | 30 |
+  | 2 of 3 | 0.88 | 3.65 | 13 (10 F, 1 M, 1 O, 1 G) |
+  | 3 of 3 | 0.79 | 0.98 | 3 (1 F, 1 O, 1 G) |
+
+  2 of 3 by type: agreement 45/55, a/an 18/25, homophone 21/26,
+  repetition 22/25, spelling 139/147.
+
+- 2-of-3 keeps single-run recall and halves clean flags; the 17 labelled
+  flags it drops are all F or M. 3-of-3 still beats LTeX+ tuned on recall
+  (0.79 vs 0.76) with about a tenth of its clean flags (0.98 vs 10.4 per
+  1k).
+- Estimated non-genuine flags per 1k (rate x share of kept sample not G/O):
+  2-of-3 ~3.1, 3-of-3 ~0.3; LTeX+ tuned ~7.0. The surviving samples are
+  small (13 and 3), so these are rough.
+- Cost in the editor: 3 requests per check instead of 1.
