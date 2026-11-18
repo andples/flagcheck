@@ -44,6 +44,34 @@ pub fn anchor(par: &str, quote: &str, before: &str) -> Anchor {
     }
 }
 
+/// For a quote that matches several places: every occurrence (on word
+/// boundaries where possible). With `before`, only occurrences preceded by
+/// it. Used when the same error is repeated, e.g. a misspelling that occurs
+/// twice in one paragraph.
+pub fn anchor_all(par: &str, quote: &str, before: &str) -> Vec<Range<usize>> {
+    let quote = quote.trim();
+    if quote.is_empty() {
+        return vec![];
+    }
+    let all: Vec<usize> = par.match_indices(quote).map(|(i, _)| i).collect();
+    let bounded: Vec<usize> = all
+        .iter()
+        .copied()
+        .filter(|&i| on_boundary(par, i, i + quote.len()))
+        .collect();
+    let cands = if bounded.is_empty() { all } else { bounded };
+    let b = squash(before.trim());
+    let cands: Vec<usize> = if b.is_empty() {
+        cands
+    } else {
+        cands
+            .into_iter()
+            .filter(|&i| squash(&par[..i]).ends_with(&b))
+            .collect()
+    };
+    cands.into_iter().map(|i| i..i + quote.len()).collect()
+}
+
 fn pick(par: &str, quote: &str, before: &str) -> Anchor {
     let all: Vec<usize> = par.match_indices(quote).map(|(i, _)| i).collect();
     if all.is_empty() {
@@ -158,6 +186,13 @@ mod tests {
         let p = "this is a\n  sentense with a break";
         let a = anchor(p, "a sentense", "is");
         assert_eq!(text(p, a), "a\n  sentense");
+    }
+
+    #[test]
+    fn all_occurrences() {
+        let p = "a teh b. a teh b. c teh d.";
+        assert_eq!(anchor_all(p, "teh", "").len(), 3);
+        assert_eq!(anchor_all(p, "teh", "a").len(), 2);
     }
 
     #[test]

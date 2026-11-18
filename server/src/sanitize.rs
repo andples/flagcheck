@@ -9,26 +9,137 @@
 
 /// Phrases after which a reason would start describing the fix.
 const CUT_MARKERS: &[&str] = &[
-    "should", "instead", "replace", "use ", "try ", "consider", "did you mean", "perhaps",
-    "maybe", "change to", "change it", "correct form", "correct spelling", "correctly",
-    "rather than", "write ", "spelled", "spelt", "meant", "probably", "likely", "e.g.",
-    "i.e.", "such as", "like ", "->", "→", "=>", "⇒", ":", "(", "would be", "needs",
-    "need ", "must", "requires", "add ", "remove ", "delete ", "insert ",
+    "should",
+    "instead",
+    "replace",
+    "use ",
+    "try ",
+    "consider",
+    "did you mean",
+    "perhaps",
+    "maybe",
+    "change to",
+    "change it",
+    "correct form",
+    "correct spelling",
+    "correctly",
+    "rather than",
+    "write ",
+    "spelled",
+    "spelt",
+    "meant",
+    "probably",
+    "likely",
+    "e.g.",
+    "i.e.",
+    "such as",
+    "like ",
+    "->",
+    "→",
+    "=>",
+    "⇒",
+    ":",
+    "(",
+    "would be",
+    "needs",
+    "need ",
+    "must",
+    "requires",
+    "add ",
+    "remove ",
+    "delete ",
+    "insert ",
 ];
 
 /// Generic grammar vocabulary that may appear in reasons even if absent
 /// from the paragraph and close to a flagged word.
 const VOCAB: &[&str] = &[
-    "verb", "verbs", "noun", "nouns", "subject", "object", "tense", "plural", "singular",
-    "article", "articles", "word", "words", "missing", "extra", "repeated", "agreement",
-    "spelling", "misspelled", "misspelling", "typo", "preposition", "punctuation", "comma",
-    "commas", "period", "hyphen", "apostrophe", "pronoun", "adjective", "adverb", "form",
-    "wrong", "incorrect", "duplicate", "doubled", "unclear", "number", "person", "case",
-    "past", "present", "future", "possessive", "contraction", "capitalisation",
-    "capitalization", "capital", "letter", "order", "mismatch", "sentence", "clause",
-    "fragment", "run-on", "usage", "choice", "confused", "homophone", "the", "a", "an",
-    "and", "or", "of", "in", "on", "to", "is", "are", "was", "were", "it", "its", "this",
-    "that", "with", "not", "no", "too", "here", "after", "before", "has", "have", "had",
+    "verb",
+    "verbs",
+    "noun",
+    "nouns",
+    "subject",
+    "object",
+    "tense",
+    "plural",
+    "singular",
+    "article",
+    "articles",
+    "word",
+    "words",
+    "missing",
+    "extra",
+    "repeated",
+    "agreement",
+    "spelling",
+    "misspelled",
+    "misspelling",
+    "typo",
+    "preposition",
+    "punctuation",
+    "comma",
+    "commas",
+    "period",
+    "hyphen",
+    "apostrophe",
+    "pronoun",
+    "adjective",
+    "adverb",
+    "form",
+    "wrong",
+    "incorrect",
+    "duplicate",
+    "doubled",
+    "unclear",
+    "number",
+    "person",
+    "case",
+    "past",
+    "present",
+    "future",
+    "possessive",
+    "contraction",
+    "capitalisation",
+    "capitalization",
+    "capital",
+    "letter",
+    "order",
+    "mismatch",
+    "sentence",
+    "clause",
+    "fragment",
+    "run-on",
+    "usage",
+    "choice",
+    "confused",
+    "homophone",
+    "the",
+    "a",
+    "an",
+    "and",
+    "or",
+    "of",
+    "in",
+    "on",
+    "to",
+    "is",
+    "are",
+    "was",
+    "were",
+    "it",
+    "its",
+    "this",
+    "that",
+    "with",
+    "not",
+    "no",
+    "too",
+    "here",
+    "after",
+    "before",
+    "has",
+    "have",
+    "had",
 ];
 
 const MAX_CHARS: usize = 48;
@@ -109,7 +220,14 @@ fn shorten(r: &str) -> String {
 /// Remove "...", “...”, `...`, and '...' (when the quotes sit on word
 /// boundaries, so apostrophes in "it's" survive).
 fn strip_quoted(s: &str) -> String {
-    let pairs = [('"', '"'), ('“', '”'), ('‘', '’'), ('`', '`'), ('«', '»'), ('\'', '\'')];
+    let pairs = [
+        ('"', '"'),
+        ('“', '”'),
+        ('‘', '’'),
+        ('`', '`'),
+        ('«', '»'),
+        ('\'', '\''),
+    ];
     let chars: Vec<char> = s.chars().collect();
     let mut out = String::new();
     let mut i = 0;
@@ -120,8 +238,9 @@ fn strip_quoted(s: &str) -> String {
                 if opens {
                     if let Some(k) = chars[i + 1..].iter().position(|&x| x == c) {
                         let close = i + 1 + k;
-                        let closes =
-                            c != '\'' || close + 1 >= chars.len() || !chars[close + 1].is_alphanumeric();
+                        let closes = c != '\''
+                            || close + 1 >= chars.len()
+                            || !chars[close + 1].is_alphanumeric();
                         if closes {
                             i = close + 1;
                             continue 'outer;
@@ -180,12 +299,13 @@ fn levenshtein(a: &str, b: &str) -> usize {
 
 /// First occurrence of `m` in `s` that does not start mid-word.
 fn find_word_start(s: &str, m: &str) -> Option<usize> {
-    s.match_indices(m)
-        .map(|(i, _)| i)
-        .find(|&i| {
-            !m.starts_with(char::is_alphanumeric)
-                || !s[..i].chars().next_back().is_some_and(char::is_alphanumeric)
-        })
+    s.match_indices(m).map(|(i, _)| i).find(|&i| {
+        !m.starts_with(char::is_alphanumeric)
+            || !s[..i]
+                .chars()
+                .next_back()
+                .is_some_and(char::is_alphanumeric)
+    })
 }
 
 fn floor(s: &str, mut i: usize) -> usize {
@@ -211,7 +331,10 @@ mod tests {
             clean_reason("Misspelled word.", "recieve", PAR).as_deref(),
             Some("Misspelled word")
         );
-        assert_eq!(clean_reason("repeated word", "the the", PAR).as_deref(), Some("repeated word"));
+        assert_eq!(
+            clean_reason("repeated word", "the the", PAR).as_deref(),
+            Some("repeated word")
+        );
     }
 
     #[test]
@@ -224,7 +347,10 @@ mod tests {
             clean_reason("misspelled: receive", "recieve", PAR).as_deref(),
             Some("misspelled")
         );
-        assert_eq!(clean_reason("wrong verb -> were", "was", PAR).as_deref(), Some("wrong verb"));
+        assert_eq!(
+            clean_reason("wrong verb -> were", "was", PAR).as_deref(),
+            Some("wrong verb")
+        );
         assert_eq!(clean_reason("Use \"received\"", "recieve", PAR), None);
     }
 
@@ -232,8 +358,14 @@ mod tests {
     fn rejects_hidden_corrections() {
         // "receive" is not in the paragraph and is one edit from the quote.
         assert_eq!(clean_reason("misspelling of receive", "recieve", PAR), None);
-        assert_eq!(clean_reason("plural needs were not was", "was", PAR), Some("plural".into()));
-        assert_eq!(clean_reason("received is the past tense", "recieve", PAR), None);
+        assert_eq!(
+            clean_reason("plural needs were not was", "was", PAR),
+            Some("plural".into())
+        );
+        assert_eq!(
+            clean_reason("received is the past tense", "recieve", PAR),
+            None
+        );
     }
 
     #[test]

@@ -8,40 +8,155 @@ use super::{Builder, balanced, line_end};
 /// Maths environments are masked but do not split the paragraph, because
 /// display maths usually sits inside a sentence.
 const MATH_ENVS: &[&str] = &[
-    "equation", "equation*", "align", "align*", "alignat", "alignat*", "gather", "gather*",
-    "multline", "multline*", "flalign", "flalign*", "eqnarray", "eqnarray*", "math",
-    "displaymath", "split", "subequations",
+    "equation",
+    "equation*",
+    "align",
+    "align*",
+    "alignat",
+    "alignat*",
+    "gather",
+    "gather*",
+    "multline",
+    "multline*",
+    "flalign",
+    "flalign*",
+    "eqnarray",
+    "eqnarray*",
+    "math",
+    "displaymath",
+    "split",
+    "subequations",
 ];
 
 /// Environments whose whole body is not prose, and which end a paragraph.
 const OPAQUE_ENVS: &[&str] = &[
-    "verbatim", "Verbatim", "lstlisting", "minted", "comment", "tikzpicture",
-    "filecontents", "filecontents*", "thebibliography", "pgfpicture", "axis",
+    "verbatim",
+    "Verbatim",
+    "lstlisting",
+    "minted",
+    "comment",
+    "tikzpicture",
+    "filecontents",
+    "filecontents*",
+    "thebibliography",
+    "pgfpicture",
+    "axis",
 ];
 
 /// Macros whose arguments are not prose (all of them, required and optional).
 const OPAQUE_ARGS: &[&str] = &[
-    "cite", "citep", "citet", "citealp", "citealt", "citeauthor", "citeyear", "parencite",
-    "textcite", "autocite", "footcite", "nocite", "ref", "eqref", "autoref", "cref", "Cref",
-    "pageref", "nameref", "vref", "label", "url", "href", "includegraphics", "input",
-    "include", "includeonly", "bibliography", "bibliographystyle", "addbibresource",
-    "usepackage", "RequirePackage", "documentclass", "begin", "end", "newcommand",
-    "renewcommand", "providecommand", "DeclareMathOperator", "newenvironment",
-    "renewenvironment", "def", "let", "setlength", "addtolength", "setcounter",
-    "addtocounter", "vspace", "hspace", "vskip", "hskip", "color", "textcolor",
-    "pagecolor", "definecolor", "graphicspath", "lstinline", "mintinline", "verb",
-    "pagestyle", "thispagestyle", "pagenumbering", "bibitem", "newtheorem", "hypersetup",
-    "geometry", "fontsize", "linespread", "resizebox", "scalebox", "rule", "raisebox",
-    "multicolumn", "multirow", "cline", "cmidrule", "column", "tag", "numberwithin",
-    "crefname", "Crefname", "SI", "si", "num", "qty", "unit", "ensuremath",
+    "cite",
+    "citep",
+    "citet",
+    "citealp",
+    "citealt",
+    "citeauthor",
+    "citeyear",
+    "parencite",
+    "textcite",
+    "autocite",
+    "footcite",
+    "nocite",
+    "ref",
+    "eqref",
+    "autoref",
+    "cref",
+    "Cref",
+    "pageref",
+    "nameref",
+    "vref",
+    "label",
+    "url",
+    "href",
+    "includegraphics",
+    "input",
+    "include",
+    "includeonly",
+    "bibliography",
+    "bibliographystyle",
+    "addbibresource",
+    "usepackage",
+    "RequirePackage",
+    "documentclass",
+    "begin",
+    "end",
+    "newcommand",
+    "renewcommand",
+    "providecommand",
+    "DeclareMathOperator",
+    "newenvironment",
+    "renewenvironment",
+    "def",
+    "let",
+    "setlength",
+    "addtolength",
+    "setcounter",
+    "addtocounter",
+    "vspace",
+    "hspace",
+    "vskip",
+    "hskip",
+    "color",
+    "textcolor",
+    "pagecolor",
+    "definecolor",
+    "graphicspath",
+    "lstinline",
+    "mintinline",
+    "verb",
+    "pagestyle",
+    "thispagestyle",
+    "pagenumbering",
+    "bibitem",
+    "newtheorem",
+    "hypersetup",
+    "geometry",
+    "fontsize",
+    "linespread",
+    "resizebox",
+    "scalebox",
+    "rule",
+    "raisebox",
+    "multicolumn",
+    "multirow",
+    "cline",
+    "cmidrule",
+    "column",
+    "tag",
+    "numberwithin",
+    "crefname",
+    "Crefname",
+    "SI",
+    "si",
+    "num",
+    "qty",
+    "unit",
+    "ensuremath",
 ];
 
 /// Macros whose first argument is prose but which start a new block.
 const SECTIONING: &[&str] = &[
-    "part", "chapter", "section", "subsection", "subsubsection", "paragraph",
-    "subparagraph", "caption", "title", "author", "date", "item",
-    "maketitle", "tableofcontents", "par", "newpage", "clearpage", "noindent", "centering",
-    "abstract", "keywords",
+    "part",
+    "chapter",
+    "section",
+    "subsection",
+    "subsubsection",
+    "paragraph",
+    "subparagraph",
+    "caption",
+    "title",
+    "author",
+    "date",
+    "item",
+    "maketitle",
+    "tableofcontents",
+    "par",
+    "newpage",
+    "clearpage",
+    "noindent",
+    "centering",
+    "abstract",
+    "keywords",
 ];
 
 pub(super) fn scan(text: &str, b: &mut Builder) {
@@ -93,10 +208,12 @@ pub(super) fn scan(text: &str, b: &mut Builder) {
                 i += 1;
             }
             b'\\' => {
-                let name_end = i + 1 + bytes[i + 1..]
-                    .iter()
-                    .take_while(|c| c.is_ascii_alphabetic() || **c == b'@')
-                    .count();
+                let name_end = i
+                    + 1
+                    + bytes[i + 1..]
+                        .iter()
+                        .take_while(|c| c.is_ascii_alphabetic() || **c == b'@')
+                        .count();
                 let name = &text[i + 1..name_end];
                 let mut ne = name_end;
                 if name.is_empty() {
@@ -148,7 +265,8 @@ pub(super) fn scan(text: &str, b: &mut Builder) {
                     let env = brace_arg(text, ne);
                     let env_name = env.as_ref().map(|r| &text[r.start + 1..r.end - 1]);
                     let close = env.as_ref().map(|r| r.end).unwrap_or(ne);
-                    let opaque = env_name.filter(|e| OPAQUE_ENVS.contains(e) || MATH_ENVS.contains(e));
+                    let opaque =
+                        env_name.filter(|e| OPAQUE_ENVS.contains(e) || MATH_ENVS.contains(e));
                     if let (true, Some(e)) = (name == "begin", opaque) {
                         let end_pat = format!("\\end{{{e}}}");
                         let block_end = text[close..]
@@ -276,7 +394,10 @@ fn find_macro(
         for n in names {
             let after = at + 1 + n.len();
             if text[at + 1..].starts_with(n)
-                && !text.as_bytes().get(after).is_some_and(|c| c.is_ascii_alphabetic())
+                && !text
+                    .as_bytes()
+                    .get(after)
+                    .is_some_and(|c| c.is_ascii_alphabetic())
             {
                 if let Some(r) = brace_arg(text, after) {
                     if r.end <= to {

@@ -78,7 +78,9 @@ impl Store {
 }
 
 fn escape(s: &str) -> String {
-    s.replace('\\', "\\\\").replace('\n', "\\n").replace('\t', "\\t")
+    s.replace('\\', "\\\\")
+        .replace('\n', "\\n")
+        .replace('\t', "\\t")
 }
 
 fn unescape(s: &str) -> String {

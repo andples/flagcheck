@@ -30,7 +30,9 @@ pub fn build(s: &Settings) -> Result<Arc<dyn Backend>> {
         BackendKind::Anthropic => Arc::new(anthropic::Anthropic::new(s, key(s)?)),
         BackendKind::Openai => {
             // Local servers such as Ollama need no key.
-            let key = std::env::var(s.api_key_env()).ok().filter(|k| !k.is_empty());
+            let key = std::env::var(s.api_key_env())
+                .ok()
+                .filter(|k| !k.is_empty());
             if key.is_none() && s.base_url.is_none() {
                 return Err(anyhow!("{} is not set", s.api_key_env()));
             }

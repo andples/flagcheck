@@ -87,7 +87,8 @@ impl Backend for Anthropic {
             if status.is_success() {
                 break r.json().await?;
             }
-            let retryable = status.as_u16() == 429 || status.as_u16() == 529 || status.is_server_error();
+            let retryable =
+                status.as_u16() == 429 || status.as_u16() == 529 || status.is_server_error();
             let text = r.text().await.unwrap_or_default();
             if retryable && attempt < 3 {
                 attempt += 1;
@@ -110,7 +111,11 @@ impl Backend for Anthropic {
             .filter_map(|b| b["text"].as_str())
             .collect();
         let flags = parse(&raw)?;
-        Ok(Reply { flags, raw, usage: Some(resp["usage"].clone()) })
+        Ok(Reply {
+            flags,
+            raw,
+            usage: Some(resp["usage"].clone()),
+        })
     }
 }
 

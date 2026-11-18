@@ -18,7 +18,10 @@ fn scan_range(text: &str, start: usize, end: usize, mut line_start: bool, b: &mu
         let c = bytes[i];
         if line_start {
             line_start = false;
-            let indent = bytes[i..].iter().take_while(|&&c| c == b' ' || c == b'\t').count();
+            let indent = bytes[i..]
+                .iter()
+                .take_while(|&&c| c == b' ' || c == b'\t')
+                .count();
             let k = i + indent;
             let rest = &text[k..line_end(text, k)];
             let marker = if rest.starts_with('=') {
@@ -61,12 +64,17 @@ fn scan_range(text: &str, start: usize, end: usize, mut line_start: bool, b: &mu
                 i = e;
             }
             b'/' if bytes.get(i + 1) == Some(&b'*') => {
-                let e = text[i + 2..].find("*/").map(|k| i + 2 + k + 2).unwrap_or(text.len());
+                let e = text[i + 2..]
+                    .find("*/")
+                    .map(|k| i + 2 + k + 2)
+                    .unwrap_or(text.len());
                 b.mask(i..e);
                 i = e;
             }
             b'$' => {
-                let e = find_unescaped(text, i + 1, b'$').map(|k| k + 1).unwrap_or(text.len());
+                let e = find_unescaped(text, i + 1, b'$')
+                    .map(|k| k + 1)
+                    .unwrap_or(text.len());
                 b.mask(i..e);
                 i = e;
             }
@@ -77,7 +85,10 @@ fn scan_range(text: &str, start: usize, end: usize, mut line_start: bool, b: &mu
                 } else {
                     ("`".to_string(), i + 1)
                 };
-                let e = text[from..].find(&pat).map(|k| from + k + pat.len()).unwrap_or(text.len());
+                let e = text[from..]
+                    .find(&pat)
+                    .map(|k| from + k + pat.len())
+                    .unwrap_or(text.len());
                 if ticks >= 3 {
                     b.block(i..e);
                 } else {
@@ -146,7 +157,11 @@ fn code(text: &str, i: usize, b: &mut Builder) -> usize {
         }
     }
     if rest.starts_with('{') || rest.starts_with('(') {
-        let (o, c) = if rest.starts_with('{') { (b'{', b'}') } else { (b'(', b')') };
+        let (o, c) = if rest.starts_with('{') {
+            (b'{', b'}')
+        } else {
+            (b'(', b')')
+        };
         let e = balanced(text, i + 1, o, c);
         b.mask(i..e);
         return e;

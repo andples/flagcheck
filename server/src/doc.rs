@@ -82,14 +82,20 @@ impl Doc {
 
     /// Replace the text. `cached` looks up the flags of a paragraph (by its
     /// text) from before the change, for carrying them over.
-    pub fn set_text(&mut self, text: String, version: i32, cached: impl Fn(&str) -> Option<Vec<Flag>>) {
+    pub fn set_text(
+        &mut self,
+        text: String,
+        version: i32,
+        cached: impl Fn(&str) -> Option<Vec<Flag>>,
+    ) {
         let old: Vec<(std::ops::Range<usize>, Vec<Flag>)> = self
             .seg
             .paragraphs
             .iter()
             .enumerate()
             .filter_map(|(i, r)| {
-                let flags = cached(&self.text[r.clone()]).or_else(|| self.provisional.get(&i).cloned())?;
+                let flags =
+                    cached(&self.text[r.clone()]).or_else(|| self.provisional.get(&i).cloned())?;
                 (!flags.is_empty()).then(|| (r.clone(), flags))
             })
             .collect();
@@ -122,9 +128,10 @@ impl Doc {
             }
             let par = &self.text[r.clone()];
             let shift = new_len as isize - old_len as isize;
-            let Some((_, flags)) = old.iter().find(|(or, _)| {
-                overlaps(or, r) || overlaps(&shifted(or, shift), r)
-            }) else {
+            let Some((_, flags)) = old
+                .iter()
+                .find(|(or, _)| overlaps(or, r) || overlaps(&shifted(or, shift), r))
+            else {
                 continue;
             };
             let kept: Vec<Flag> = flags
@@ -205,8 +212,18 @@ mod tests {
     fn carries_flags_while_editing() {
         let mut d = Doc::new(Lang::Markdown, None, "We recieve teh data.\n".into(), 1);
         let flags = vec![
-            Flag { range: 3..10, quote: "recieve".into(), category: Category::Spelling, reason: None },
-            Flag { range: 11..14, quote: "teh".into(), category: Category::Spelling, reason: None },
+            Flag {
+                range: 3..10,
+                quote: "recieve".into(),
+                category: Category::Spelling,
+                reason: None,
+            },
+            Flag {
+                range: 11..14,
+                quote: "teh".into(),
+                category: Category::Spelling,
+                reason: None,
+            },
         ];
         let first = d.paragraph(0).to_string();
         let lookup = move |p: &str| (p == first).then(|| flags.clone());
@@ -220,7 +237,12 @@ mod tests {
 
     #[test]
     fn opt_out_comment() {
-        let d = Doc::new(Lang::Markdown, None, "<!-- flagcheck: off -->\nTeh.\n".into(), 1);
+        let d = Doc::new(
+            Lang::Markdown,
+            None,
+            "<!-- flagcheck: off -->\nTeh.\n".into(),
+            1,
+        );
         assert!(d.disabled);
     }
 

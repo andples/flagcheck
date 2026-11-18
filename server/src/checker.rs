@@ -4,7 +4,7 @@
 //! This is shared by the language server and the CLI/benchmark, so both see
 //! exactly the same pipeline.
 
-use crate::anchor::{Anchor, anchor};
+use crate::anchor::{Anchor, anchor, anchor_all};
 use crate::backend::{Backend, Reply};
 use crate::config::Settings;
 use crate::flag::{Category, Flag, RawFlag};
@@ -64,10 +64,12 @@ pub async fn check(
         let mut m: BTreeMap<usize, Vec<Flag>> = BTreeMap::new();
         for raw in &reply.flags {
             match place(raw, ids, text, seg, settings.reasons) {
-                Ok(f) => {
+                Ok(fs) => {
                     let v = m.entry(raw.paragraph).or_default();
-                    if !v.iter().any(|g| g.range == f.range) {
-                        v.push(f);
+                    for f in fs {
+                        if !v.iter().any(|g| g.range == f.range) {
+                            v.push(f);
+                        }
                     }
                 }
                 Err(why) => out.dropped.push(Dropped {
@@ -97,7 +99,7 @@ fn place(
     text: &str,
     seg: &Segmented,
     reasons: ReasonMode,
-) -> Result<Flag, &'static str> {
+) -> Result<Vec<Flag>, &'static str> {
     if !ids.contains(&raw.paragraph) {
         return Err("unknown paragraph");
     }
@@ -106,28 +108,47 @@ fn place(
     }
     let pr = seg.paragraphs[raw.paragraph].clone();
     let par = &text[pr.clone()];
-    let range = match anchor(par, &raw.quote, &raw.before) {
-        Anchor::Found(r) => r,
+    let ranges = match anchor(par, &raw.quote, &raw.before) {
+        Anchor::Found(r) => vec![r],
         Anchor::NotFound => return Err("quote not found"),
-        Anchor::Ambiguous(_) => return Err("quote ambiguous"),
+        // The same text in several places. A misspelling is wrong wherever
+        // it occurs; other errors only where the preceding words match too.
+        Anchor::Ambiguous(_) => {
+            let before = if raw.category == Category::Spelling {
+                ""
+            } else {
+                raw.before.as_str()
+            };
+            let all = anchor_all(par, &raw.quote, before);
+            if all.is_empty() || (before.is_empty() && raw.category != Category::Spelling) {
+                return Err("quote ambiguous");
+            }
+            all
+        }
     };
-    let abs = pr.start + range.start..pr.start + range.end;
-    if seg.no_prose_in(text, abs.clone()) {
-        return Err("inside markup");
-    }
-    if raw.category == Category::Spelling && seg.any_masked_in(abs.clone()) {
-        return Err("spelling touches markup");
-    }
     let reason = match reasons {
         ReasonMode::Short => clean_reason(&raw.reason, &raw.quote, par),
         ReasonMode::Category | ReasonMode::None => None,
     };
-    Ok(Flag {
-        quote: par[range.clone()].to_string(),
-        range,
-        category: raw.category,
-        reason,
-    })
+    let mut out = vec![];
+    let mut why = "inside markup";
+    for range in ranges {
+        let abs = pr.start + range.start..pr.start + range.end;
+        if seg.no_prose_in(text, abs.clone()) {
+            continue;
+        }
+        if raw.category == Category::Spelling && seg.any_masked_in(abs.clone()) {
+            why = "spelling touches markup";
+            continue;
+        }
+        out.push(Flag {
+            quote: par[range.clone()].to_string(),
+            range,
+            category: raw.category,
+            reason: reason.clone(),
+        });
+    }
+    if out.is_empty() { Err(why) } else { Ok(out) }
 }
 
 /// Keep flags that overlap a flag in at least `min` of the vote lists. The
@@ -186,6 +207,25 @@ mod tests {
         let kept: Vec<_> = vote(&lists, 2).into_iter().map(|f| f.range).collect();
         assert_eq!(kept, vec![0..3]);
         assert_eq!(vote(&lists, 1).len(), 3);
+    }
+
+    #[tokio::test]
+    async fn repeated_misspelling_flags_every_copy() {
+        let text = "Test pbbadd here.\nTest pbbadd here.\nTest pbbadd here.\n";
+        let s = Settings {
+            backend: BackendKind::Mock,
+            ..Default::default()
+        };
+        let seg = segment(Lang::Markdown, text);
+        let raw = RawFlag {
+            paragraph: 0,
+            quote: "pbbadd".into(),
+            before: "Test".into(),
+            category: Category::Spelling,
+            reason: "misspelled word".into(),
+        };
+        let fs = place(&raw, &[0], text, &seg, s.reasons).unwrap();
+        assert_eq!(fs.len(), 3);
     }
 
     #[tokio::test]

@@ -111,10 +111,12 @@ impl Settings {
     }
 
     pub fn api_key_env(&self) -> String {
-        self.api_key_env.clone().unwrap_or_else(|| match self.backend {
-            BackendKind::Openai => "OPENAI_API_KEY".into(),
-            _ => "ANTHROPIC_API_KEY".into(),
-        })
+        self.api_key_env
+            .clone()
+            .unwrap_or_else(|| match self.backend {
+                BackendKind::Openai => "OPENAI_API_KEY".into(),
+                _ => "ANTHROPIC_API_KEY".into(),
+            })
     }
 
     /// Everything that can change a paragraph's flags. Part of the cache key,

@@ -71,7 +71,10 @@ pub(super) fn scan(text: &str, b: &mut Builder) {
 
         // Thematic break / table separator rows.
         let t = trimmed.trim_end();
-        if !t.is_empty() && t.chars().all(|c| matches!(c, '-' | '*' | '_' | '|' | ':' | ' ' | '=')) {
+        if !t.is_empty()
+            && t.chars()
+                .all(|c| matches!(c, '-' | '*' | '_' | '|' | ':' | ' ' | '='))
+        {
             b.block(pos..end);
             pos = end + 1;
             continue;
@@ -110,9 +113,10 @@ pub(super) fn scan(text: &str, b: &mut Builder) {
 
 fn heading_marker(s: &str) -> Option<usize> {
     let n = s.bytes().take_while(|&c| c == b'#').count();
-    (1..=6).contains(&n).then_some(n).filter(|&n| {
-        s.as_bytes().get(n).is_none_or(|&c| c == b' ')
-    })
+    (1..=6)
+        .contains(&n)
+        .then_some(n)
+        .filter(|&n| s.as_bytes().get(n).is_none_or(|&c| c == b' '))
 }
 
 fn list_marker(s: &str) -> Option<usize> {
@@ -147,7 +151,10 @@ fn inline(text: &str, start: usize, end: usize, b: &mut Builder) {
                 let ticks = bytes[i..end].iter().take_while(|&&c| c == b'`').count();
                 let pat = "`".repeat(ticks);
                 let from = i + ticks;
-                let close = text[from..end].find(&pat).map(|k| from + k + ticks).unwrap_or(end);
+                let close = text[from..end]
+                    .find(&pat)
+                    .map(|k| from + k + ticks)
+                    .unwrap_or(end);
                 b.mask(i..close);
                 i = close;
             }
@@ -223,10 +230,17 @@ mod tests {
 
     #[test]
     fn paragraphs_and_headings() {
-        let t = "# Title here\nFirst para\ncontinues.\n\nSecond `code` para.\n- item one\n- item two\n";
+        let t =
+            "# Title here\nFirst para\ncontinues.\n\nSecond `code` para.\n- item one\n- item two\n";
         assert_eq!(
             p(t),
-            vec!["·Title here", "First para\ncontinues.", "Second · para.", "·item one", "·item two"]
+            vec![
+                "·Title here",
+                "First para\ncontinues.",
+                "Second · para.",
+                "·item one",
+                "·item two"
+            ]
         );
     }
 

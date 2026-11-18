@@ -55,7 +55,11 @@ struct State {
 }
 
 fn cache_key(fingerprint: &str, lang: Lang, paragraph: &str) -> u64 {
-    fnv(&[fingerprint.as_bytes(), lang.name().as_bytes(), paragraph.as_bytes()])
+    fnv(&[
+        fingerprint.as_bytes(),
+        lang.name().as_bytes(),
+        paragraph.as_bytes(),
+    ])
 }
 
 impl State {
@@ -106,7 +110,10 @@ impl State {
                 }
                 let abs = r.start + f.range.start..r.start + f.range.end;
                 let message = match self.settings.reasons {
-                    ReasonMode::Short => f.reason.clone().unwrap_or_else(|| f.category.label().into()),
+                    ReasonMode::Short => f
+                        .reason
+                        .clone()
+                        .unwrap_or_else(|| f.category.label().into()),
                     ReasonMode::Category => f.category.label().into(),
                     ReasonMode::None => String::new(),
                 };
@@ -129,7 +136,9 @@ impl State {
     }
 
     fn log(&self, record: Value) {
-        let Some(p) = &self.settings.log_path else { return };
+        let Some(p) = &self.settings.log_path else {
+            return;
+        };
         let path = match &self.root {
             Some(root) if !PathBuf::from(p).is_absolute() => root.join(p),
             _ => PathBuf::from(p),
@@ -137,7 +146,11 @@ impl State {
         if let Some(dir) = path.parent() {
             let _ = std::fs::create_dir_all(dir);
         }
-        if let Ok(mut f) = std::fs::OpenOptions::new().create(true).append(true).open(path) {
+        if let Ok(mut f) = std::fs::OpenOptions::new()
+            .create(true)
+            .append(true)
+            .open(path)
+        {
             let _ = writeln!(f, "{record}");
         }
     }
@@ -189,7 +202,9 @@ impl Server {
 
 async fn publish(client: &Client, state: &Arc<Mutex<State>>, uri: &Uri) {
     let (diags, version) = state.lock().await.diagnostics(uri);
-    client.publish_diagnostics(uri.clone(), diags, version).await;
+    client
+        .publish_diagnostics(uri.clone(), diags, version)
+        .await;
 }
 
 /// Send every unchecked paragraph of `uri` to the backend, in batches.
@@ -228,7 +243,14 @@ async fn run(client: Client, state: Arc<Mutex<State>>, uri: Uri) {
             Context::Document => Some(d.context()),
             Context::Paragraph => None,
         };
-        let job = Arc::new((d.text.clone(), d.seg.clone(), context, lang, settings.clone(), backend));
+        let job = Arc::new((
+            d.text.clone(),
+            d.seg.clone(),
+            context,
+            lang,
+            settings.clone(),
+            backend,
+        ));
         pending
             .chunks(settings.batch.max(1))
             .map(|c| (job.clone(), c.to_vec()))
@@ -245,8 +267,16 @@ async fn run(client: Client, state: Arc<Mutex<State>>, uri: Uri) {
             let _permit = limit.acquire_owned().await;
             let (text, seg, context, lang, settings, backend) = &*job;
             let ids: Vec<usize> = chunk.iter().map(|(i, _)| *i).collect();
-            let result =
-                checker::check(backend.as_ref(), settings, *lang, context.clone(), text, seg, &ids).await;
+            let result = checker::check(
+                backend.as_ref(),
+                settings,
+                *lang,
+                context.clone(),
+                text,
+                seg,
+                &ids,
+            )
+            .await;
             let mut st = state.lock().await;
             for (_, k) in &chunk {
                 st.inflight.remove(k);
@@ -272,12 +302,16 @@ async fn run(client: Client, state: Arc<Mutex<State>>, uri: Uri) {
                     }));
                     st.shown_error = None;
                     drop(st);
-                    client.log_message(MessageType::INFO, summary(&settings, &out, ids.len())).await;
+                    client
+                        .log_message(MessageType::INFO, summary(&settings, &out, ids.len()))
+                        .await;
                     true
                 }
                 Err(e) => {
                     let msg = e.to_string();
-                    client.log_message(MessageType::ERROR, format!("error: {msg}")).await;
+                    client
+                        .log_message(MessageType::ERROR, format!("error: {msg}"))
+                        .await;
                     st.log(json!({"time": unix_time(), "uri": uri.as_str(), "error": msg}));
                     let show = st.shown_error.as_ref() != Some(&msg);
                     st.shown_error = Some(msg.clone());
@@ -323,8 +357,19 @@ fn summary(settings: &Settings, out: &checker::Checked, paragraphs: usize) -> St
             .sum()
     };
     if out.replies.iter().any(|r| r.usage.is_some()) {
+        let thinking: u64 = out
+            .replies
+            .iter()
+            .filter_map(|r| {
+                r.usage
+                    .as_ref()?
+                    .get("output_tokens_details")?
+                    .get("thinking_tokens")?
+                    .as_u64()
+            })
+            .sum();
         line.push_str(&format!(
-            " | in {} cached {} out {}",
+            " | in {} cached {} out {} thinking {thinking}",
             sum("input_tokens") + sum("prompt_tokens"),
             sum("cache_read_input_tokens"),
             sum("output_tokens") + sum("completion_tokens"),
@@ -408,7 +453,9 @@ impl LanguageServer for Server {
     }
 
     async fn did_change_configuration(&self, params: DidChangeConfigurationParams) {
-        let Some(s) = parse_settings(&params.settings) else { return };
+        let Some(s) = parse_settings(&params.settings) else {
+            return;
+        };
         let uris: Vec<Uri> = {
             let mut st = self.state.lock().await;
             st.configure(s);
@@ -424,8 +471,10 @@ impl LanguageServer for Server {
     async fn did_open(&self, params: DidOpenTextDocumentParams) {
         let td = params.text_document;
         let path = td.uri.to_file_path().map(|p| p.into_owned());
-        let lang = Lang::from_language_id(&td.language_id)
-            .or_else(|| path.as_ref().and_then(|p| Lang::from_path(&p.to_string_lossy())));
+        let lang = Lang::from_language_id(&td.language_id).or_else(|| {
+            path.as_ref()
+                .and_then(|p| Lang::from_path(&p.to_string_lossy()))
+        });
         let Some(lang) = lang else { return };
         {
             let mut st = self.state.lock().await;
@@ -517,7 +566,10 @@ impl LanguageServer for Server {
         let uris: Vec<Uri> = {
             let mut st = self.state.lock().await;
             let res = match params.command.as_str() {
-                CMD_IGNORE => match (args.first().and_then(|v| v.as_str()), args.get(1).and_then(|v| v.as_str())) {
+                CMD_IGNORE => match (
+                    args.first().and_then(|v| v.as_str()),
+                    args.get(1).and_then(|v| v.as_str()),
+                ) {
                     (Some(h), Some(q)) => match u64::from_str_radix(h, 16) {
                         Ok(h) => st.store.ignore(h, q),
                         Err(_) => Ok(()),

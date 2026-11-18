@@ -218,10 +218,7 @@ pub(crate) fn balanced(text: &str, i: usize, open: u8, close: u8) -> usize {
     debug_assert_eq!(bytes[i], open);
     let mut depth = 0usize;
     let mut j = i;
-    let limit = text[i..]
-        .find("\n\n")
-        .map(|k| i + k)
-        .unwrap_or(text.len());
+    let limit = text[i..].find("\n\n").map(|k| i + k).unwrap_or(text.len());
     while j < limit {
         let b = bytes[j];
         if b == b'\\' {

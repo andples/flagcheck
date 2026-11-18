@@ -8,9 +8,28 @@ use crate::prompt::CheckRequest;
 use anyhow::Result;
 
 const MISSPELLINGS: &[&str] = &[
-    "teh", "recieve", "recieved", "seperate", "occured", "definately", "wich", "untill",
-    "accomodate", "acheive", "beleive", "enviroment", "goverment", "neccessary", "occurence",
-    "thier", "tommorow", "wierd", "arguement", "existance", "independant", "refered",
+    "teh",
+    "recieve",
+    "recieved",
+    "seperate",
+    "occured",
+    "definately",
+    "wich",
+    "untill",
+    "accomodate",
+    "acheive",
+    "beleive",
+    "enviroment",
+    "goverment",
+    "neccessary",
+    "occurence",
+    "thier",
+    "tommorow",
+    "wierd",
+    "arguement",
+    "existance",
+    "independant",
+    "refered",
 ];
 
 pub struct Mock;
@@ -26,7 +45,11 @@ impl Backend for Mock {
                 .collect();
             for (k, &(_, w)) in words.iter().enumerate() {
                 let bare = w.trim_matches(|c: char| !c.is_alphanumeric());
-                let before = if k > 0 { words[k - 1].1.to_string() } else { String::new() };
+                let before = if k > 0 {
+                    words[k - 1].1.to_string()
+                } else {
+                    String::new()
+                };
                 if MISSPELLINGS.contains(&bare.to_lowercase().as_str()) {
                     flags.push(RawFlag {
                         paragraph: *id,
@@ -38,11 +61,16 @@ impl Backend for Mock {
                 }
                 if k > 0 {
                     let prev = words[k - 1].1.trim_matches(|c: char| !c.is_alphanumeric());
-                    if !bare.is_empty() && prev.eq_ignore_ascii_case(bare) && words[k - 1].1 == prev {
+                    if !bare.is_empty() && prev.eq_ignore_ascii_case(bare) && words[k - 1].1 == prev
+                    {
                         flags.push(RawFlag {
                             paragraph: *id,
                             quote: format!("{prev} {bare}"),
-                            before: if k > 1 { words[k - 2].1.to_string() } else { String::new() },
+                            before: if k > 1 {
+                                words[k - 2].1.to_string()
+                            } else {
+                                String::new()
+                            },
                             category: Category::Repetition,
                             reason: "repeated word".into(),
                         });
@@ -51,6 +79,10 @@ impl Backend for Mock {
             }
         }
         let raw = serde_json::json!({ "flags": flags }).to_string();
-        Ok(Reply { flags, raw, usage: None })
+        Ok(Reply {
+            flags,
+            raw,
+            usage: None,
+        })
     }
 }

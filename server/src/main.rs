@@ -63,7 +63,9 @@ async fn check(args: &[String]) -> Result<()> {
     let mut it = args.iter();
     while let Some(a) = it.next() {
         let mut val = |name: &str| -> Result<String> {
-            it.next().cloned().with_context(|| format!("{name} needs a value"))
+            it.next()
+                .cloned()
+                .with_context(|| format!("{name} needs a value"))
         };
         match a.as_str() {
             "--backend" => _ = settings.insert("backend".into(), val(a)?.into()),
@@ -139,7 +141,10 @@ async fn check(args: &[String]) -> Result<()> {
             }
             if verbose {
                 for d in &out.dropped {
-                    eprintln!("dropped ({}): paragraph {} {:?}", d.why, d.paragraph, d.quote);
+                    eprintln!(
+                        "dropped ({}): paragraph {} {:?}",
+                        d.why, d.paragraph, d.quote
+                    );
                 }
                 for r in &out.replies {
                     if let Some(u) = &r.usage {

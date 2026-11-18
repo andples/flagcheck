@@ -83,7 +83,10 @@ impl Backend for OpenAi {
                 tokio::time::sleep(std::time::Duration::from_millis(500 << attempt)).await;
                 continue;
             }
-            bail!("openai-compatible {status}: {}", text.chars().take(200).collect::<String>());
+            bail!(
+                "openai-compatible {status}: {}",
+                text.chars().take(200).collect::<String>()
+            );
         };
         let choice = &resp["choices"][0];
         if choice["finish_reason"] == "length" {
@@ -94,6 +97,10 @@ impl Backend for OpenAi {
             .ok_or_else(|| anyhow!("no content in reply"))?
             .to_string();
         let flags = parse(&raw)?;
-        Ok(Reply { flags, raw, usage: Some(resp["usage"].clone()) })
+        Ok(Reply {
+            flags,
+            raw,
+            usage: Some(resp["usage"].clone()),
+        })
     }
 }
