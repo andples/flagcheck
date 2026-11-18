@@ -106,6 +106,9 @@ fn place(
     if raw.category == Category::Other {
         return Err("no category");
     }
+    if let Some(why) = implausible(raw) {
+        return Err(why);
+    }
     let pr = seg.paragraphs[raw.paragraph].clone();
     let par = &text[pr.clone()];
     let ranges = match anchor(par, &raw.quote, &raw.before) {
@@ -150,6 +153,30 @@ fn place(
     }
     if out.is_empty() { Err(why) } else { Ok(out) }
 }
+
+/// Shape checks on a flag, from the first real runs: a "spelling" error
+/// spanning several words was never a misspelling; reasons about spelling
+/// variety flagged British spellings in British documents despite the
+/// prompt; whole-sentence quotes point at nothing in particular.
+fn implausible(raw: &RawFlag) -> Option<&'static str> {
+    let words = raw.quote.split_whitespace().count();
+    if raw.category == Category::Spelling && words > 1 {
+        return Some("multi-word spelling");
+    }
+    if words > MAX_QUOTE_WORDS {
+        return Some("quote too long");
+    }
+    let r = raw.reason.to_lowercase();
+    if ["variant", "variety", "british", "american", "inconsisten"]
+        .iter()
+        .any(|w| r.contains(w))
+    {
+        return Some("spelling variety");
+    }
+    None
+}
+
+const MAX_QUOTE_WORDS: usize = 6;
 
 /// Keep flags that overlap a flag in at least `min` of the vote lists. The
 /// representative is the first occurrence (lowest vote index).
@@ -207,6 +234,22 @@ mod tests {
         let kept: Vec<_> = vote(&lists, 2).into_iter().map(|f| f.range).collect();
         assert_eq!(kept, vec![0..3]);
         assert_eq!(vote(&lists, 1).len(), 3);
+    }
+
+    #[test]
+    fn implausible_shapes() {
+        let mk = |q: &str, c: Category, r: &str| RawFlag {
+            paragraph: 0,
+            quote: q.into(),
+            before: String::new(),
+            category: c,
+            reason: r.into(),
+        };
+        assert!(implausible(&mk("Frame stacking", Category::Spelling, "misspelled")).is_some());
+        assert!(implausible(&mk("randomises", Category::Spelling, "spelling variant inconsistent")).is_some());
+        assert!(implausible(&mk("a b c d e f g", Category::Grammar, "fragment")).is_some());
+        assert!(implausible(&mk("mamalls", Category::Spelling, "misspelled word")).is_none());
+        assert!(implausible(&mk("is instead", Category::MissingWord, "missing word")).is_none());
     }
 
     #[tokio::test]
