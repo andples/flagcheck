@@ -272,10 +272,12 @@ async fn run(client: Client, state: Arc<Mutex<State>>, uri: Uri) {
                     }));
                     st.shown_error = None;
                     drop(st);
+                    client.log_message(MessageType::INFO, summary(&settings, &out, ids.len())).await;
                     true
                 }
                 Err(e) => {
                     let msg = e.to_string();
+                    client.log_message(MessageType::ERROR, format!("error: {msg}")).await;
                     st.log(json!({"time": unix_time(), "uri": uri.as_str(), "error": msg}));
                     let show = st.shown_error.as_ref() != Some(&msg);
                     st.shown_error = Some(msg.clone());
@@ -301,6 +303,37 @@ async fn run(client: Client, state: Arc<Mutex<State>>, uri: Uri) {
     if all_ok {
         Box::pin(run(client, state, uri)).await;
     }
+}
+
+/// One line per request for the editor's language server log, e.g.
+/// `claude-haiku-5-5 low | 16 par | 5 flags | 2 dropped | 2786 ms | in 712 cached 2420 out 57`
+fn summary(settings: &Settings, out: &checker::Checked, paragraphs: usize) -> String {
+    let flags: usize = out.flags.values().map(Vec::len).sum();
+    let mut line = format!(
+        "{} {} | {paragraphs} par | {flags} flags | {} dropped | {} ms",
+        settings.model(),
+        settings.effort().unwrap_or_default(),
+        out.dropped.len(),
+        out.latency_ms,
+    );
+    let sum = |k: &str| -> u64 {
+        out.replies
+            .iter()
+            .filter_map(|r| r.usage.as_ref()?.get(k)?.as_u64())
+            .sum()
+    };
+    if out.replies.iter().any(|r| r.usage.is_some()) {
+        line.push_str(&format!(
+            " | in {} cached {} out {}",
+            sum("input_tokens") + sum("prompt_tokens"),
+            sum("cache_read_input_tokens"),
+            sum("output_tokens") + sum("completion_tokens"),
+        ));
+    }
+    for d in &out.dropped {
+        line.push_str(&format!("\n  dropped ({}): {:?}", d.why, d.quote));
+    }
+    line
 }
 
 fn unix_time() -> u64 {
