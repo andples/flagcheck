@@ -1,0 +1,143 @@
+{
+ "papers": [
+  {
+   "id": "2608.17029",
+   "version": 1,
+   "title": "LadderTeam: Dual-Agent Laddering Elicitation Framework",
+   "categories": [
+    "cs.SE",
+    "cs.HC"
+   ],
+   "license": "CC BY 4.0",
+   "file": "2608.17029.tex",
+   "sha256": "a5b4fba56c632f2f3f311b65a518d658c4b5f0547d312e71664ad4349e0d73e4",
+   "prose_words": 2684,
+   "first_submitted": "2026-08"
+  },
+  {
+   "id": "2609.39300",
+   "version": 1,
+   "title": "BMASH: Ball-Motion-Aware Soccer Header Spotting",
+   "categories": [
+    "cs.CV"
+   ],
+   "license": "CC BY 4.0",
+   "file": "2609.39300.tex",
+   "sha256": "d0e482940ae6f0e0a7505058a64ccc7ede6a34c941afbdb66561fc7d3bae8e8f",
+   "prose_words": 5396,
+   "first_submitted": "2026-09"
+  },
+  {
+   "id": "2609.38411",
+   "version": 1,
+   "title": "A Competing-Hazards Systematization of Loss of Control in Autonomous Agents",
+   "categories": [
+    "cs.AI",
+    "cs.CR"
+   ],
+   "license": "CC BY 4.0",
+   "file": "2609.38411.tex",
+   "sha256": "e4feda1e60e372efb349fd7c02164cf63bfb44715f99798a77d740700f99c7e7",
+   "prose_words": 8939,
+   "first_submitted": "2026-09"
+  },
+  {
+   "id": "2609.39058",
+   "version": 1,
+   "title": "A 3GPP-Compliant Benchmark Dataset for RIS-Aided Beyond 5G Networks",
+   "categories": [
+    "cs.DB",
+    "cs.AI"
+   ],
+   "license": "CC BY 4.0",
+   "file": "2609.39058.tex",
+   "sha256": "0c00edf1b666814702a2b6f19e262e4e605b157c139f914f613e9b469d8e0c1e",
+   "prose_words": 7195,
+   "first_submitted": "2026-09"
+  },
+  {
+   "id": "2609.38119",
+   "version": 1,
+   "title": "VideoLoop: Looped Working Memory Against Semantic Thrashing in Long-Form Video Agents",
+   "categories": [
+    "cs.CV"
+   ],
+   "license": "CC BY 4.0",
+   "file": "2609.38119.tex",
+   "sha256": "76b59bc831d4626424fd001f9da61c156031f31e24b78ecbc4d082371e1f7a7c",
+   "prose_words": 3881,
+   "first_submitted": "2026-09"
+  },
+  {
+   "id": "2609.28478",
+   "version": 1,
+   "title": "When Evaluators Cry Wolf: Lessons from Production LLM-as-Judge Evaluation in Educational AI",
+   "categories": [
+    "cs.CY"
+   ],
+   "license": "CC BY 4.0",
+   "file": "2609.28478.tex",
+   "sha256": "fb4b7b7cd52b7371c836975b3ab1d059ca072394418838c2960b68e7d6f17053",
+   "prose_words": 7413,
+   "first_submitted": "2026-09"
+  },
+  {
+   "id": "2609.39442",
+   "version": 1,
+   "title": "Executive Judgement in AI-Mediated Decision-Making Environments: A Process Theory of Formation, Qualification Attrition and Authorisation",
+   "categories": [
+    "cs.CY"
+   ],
+   "license": "CC BY-SA 4.0",
+   "file": "2609.39442.tex",
+   "sha256": "59bcc63b7929fdcee4619ac2ecf1e5341f02578f50d9826575286978f234fec6",
+   "prose_words": 8793,
+   "first_submitted": "2026-09"
+  },
+  {
+   "id": "2609.37054",
+   "version": 1,
+   "title": "ACTR: Aligning Thoughts and Responses for Multilingual Safety in Reasoning LLMs",
+   "categories": [
+    "cs.AI"
+   ],
+   "license": "CC BY 4.0",
+   "file": "2609.37054.tex",
+   "sha256": "14fea299ecfa7558ec9209cce928c8193fb7cb62b88208751af065dfc738becf",
+   "prose_words": 6272,
+   "first_submitted": "2026-09"
+  },
+  {
+   "id": "2609.39222",
+   "version": 1,
+   "title": "DC-SAE: Deep Compression Semantic Autoencoder for Faster Diffusion Convergence",
+   "first_submitted": "2026-09",
+   "categories": [
+    "cs.CV"
+   ],
+   "license": "CC BY 4.0",
+   "file": "2609.39222.tex",
+   "sha256": "da0b20f9a0428d8dd77fc9abe7c1e24cce2b9687d532bdec5b233532fabced69",
+   "prose_words": 5280
+  },
+  {
+   "id": "2609.39426",
+   "version": 1,
+   "title": "The prospect of a fair outcome triggers prosocial behaviour in the Centipede Game",
+   "first_submitted": "2026-09",
+   "categories": [
+    "cs.GT"
+   ],
+   "license": "CC BY 4.0",
+   "file": "2609.39426.tex",
+   "sha256": "e5160500292a3618594c4b36bf431bde3979b7142c6950908e4592837b3849a0",
+   "prose_words": 12348
+  }
+ ],
+ "rejected": {
+  "2609.39666": "16666 prose words",
+  "2601.16294": "first submitted before cutoff",
+  "2601.08710": "first submitted before cutoff",
+  "2609.38340": "too large (7030751 bytes)"
+ }
+}
