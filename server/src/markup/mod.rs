@@ -20,6 +20,10 @@ pub enum Lang {
     Markdown,
     Latex,
     Typst,
+    /// A format with no scanner: paragraphs split at blank lines, no mask.
+    /// The model is told only that the markup is unknown. Used for E6 and
+    /// for any format flagcheck does not know.
+    Unknown,
 }
 
 impl Lang {
@@ -28,6 +32,7 @@ impl Lang {
             "markdown" | "md" | "mdx" | "quarto" | "rmarkdown" => Some(Lang::Markdown),
             "latex" | "tex" | "plaintex" | "context" | "bibtex" => Some(Lang::Latex),
             "typst" | "typ" => Some(Lang::Typst),
+            "plaintext" | "text" | "unknown" => Some(Lang::Unknown),
             _ => None,
         }
     }
@@ -38,6 +43,7 @@ impl Lang {
             "md" | "markdown" | "mdx" | "qmd" | "rmd" => Some(Lang::Markdown),
             "tex" | "ltx" | "sty" | "cls" => Some(Lang::Latex),
             "typ" => Some(Lang::Typst),
+            "txt" | "glyph" => Some(Lang::Unknown),
             _ => None,
         }
     }
@@ -47,6 +53,7 @@ impl Lang {
             Lang::Markdown => "markdown",
             Lang::Latex => "latex",
             Lang::Typst => "typst",
+            Lang::Unknown => "unknown-format",
         }
     }
 }
@@ -88,6 +95,7 @@ pub fn segment(lang: Lang, text: &str) -> Segmented {
         Lang::Markdown => markdown::scan(text, &mut b),
         Lang::Latex => latex::scan(text, &mut b),
         Lang::Typst => typst::scan(text, &mut b),
+        Lang::Unknown => {}
     }
     b.finish()
 }
