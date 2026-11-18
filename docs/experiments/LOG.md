@@ -261,3 +261,10 @@ pilots that shaped the tool, not as results.
   sampled per tool (flagcheck pooled over 3 runs), seed 1. Pool sizes:
   flagcheck 794, ltex-tuned 712, harper-tuned 1,089, ltex-default 1,548,
   harper-us 1,983.
+- a/an misses (flagcheck r1, 12 of 25): genuine misses, not anchoring
+  failures. No flag near 10 of them ("a explicit", "an code-hosting",
+  "an policy model"); for 2 the model flagged the next word instead
+  (`single`, `fair outcome`), which the overlap rule counts as a miss.
+  Hypothesis: 16 paragraphs per request makes the model skim. Test batch
+  size in E4; consider a lenient "adjacent token" match as a secondary
+  score.
