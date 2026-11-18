@@ -1,14 +1,20 @@
 //! Typst: comments, maths, raw text, `#` code expressions (but not the
-//! content blocks they take), labels and references are masked. Headings and
+//! content blocks they take, inside or after the arguments), labels and
+//! references are masked. Headings and
 //! list items are their own paragraphs.
 
 use super::{Builder, balanced, line_end};
 
 pub(super) fn scan(text: &str, b: &mut Builder) {
+    scan_range(text, 0, text.len(), true, b);
+}
+
+/// Scan `text[start..end]` as markup. Also used for content blocks inside
+/// code arguments, such as a figure caption.
+fn scan_range(text: &str, start: usize, end: usize, mut line_start: bool, b: &mut Builder) {
     let bytes = text.as_bytes();
-    let mut i = 0;
-    let mut line_start = true;
-    while i < text.len() {
+    let mut i = start;
+    while i < end {
         let c = bytes[i];
         if line_start {
             line_start = false;
@@ -128,6 +134,13 @@ fn code(text: &str, i: usize, b: &mut Builder) -> usize {
                 }
             }
             let j = j.max(e);
+            if kw == "include " {
+                // Included files are added to the model's context.
+                let arg = text[i + 1 + kw.len()..j].trim();
+                if let Some(path) = arg.strip_prefix('"').and_then(|a| a.split('"').next()) {
+                    b.include(path.to_string());
+                }
+            }
             b.block(i..j);
             return j;
         }
@@ -155,11 +168,45 @@ fn code(text: &str, i: usize, b: &mut Builder) -> usize {
     if j == i + 1 {
         return i + 1;
     }
-    while bytes.get(j) == Some(&b'(') {
-        j = balanced(text, j, b'(', b')');
-    }
     b.mask(i..j);
+    while bytes.get(j) == Some(&b'(') {
+        j = args(text, j, b);
+    }
     j
+}
+
+/// Mask a `(...)` argument list starting at `open`, except content blocks
+/// (`caption: [...]`), which are prose and are scanned as markup.
+fn args(text: &str, open: usize, b: &mut Builder) -> usize {
+    let bytes = text.as_bytes();
+    let end = balanced(text, open, b'(', b')');
+    let mut k = open;
+    let mut seg = open;
+    while k < end {
+        match bytes[k] {
+            b'"' => {
+                k += 1;
+                while k < end && bytes[k] != b'"' {
+                    if bytes[k] == b'\\' {
+                        k += 1;
+                    }
+                    k += 1;
+                }
+                k += 1;
+            }
+            b'[' => {
+                let close = balanced(text, k, b'[', b']').min(end);
+                let inner_end = close.saturating_sub(1).max(k + 1);
+                b.mask(seg..k + 1);
+                scan_range(text, k + 1, inner_end, false, b);
+                seg = inner_end;
+                k = close;
+            }
+            _ => k += 1,
+        }
+    }
+    b.mask(seg..end.min(text.len()));
+    end
 }
 
 fn ident_len(s: &str) -> usize {
@@ -222,6 +269,18 @@ mod tests {
                 "·second item",
             ]
         );
+    }
+
+    #[test]
+    fn content_inside_arguments() {
+        let t = "#figure(image(\"a[b].png\"), caption: [A plot of $x$ by @ref.])\n\nSee #link(\"https://x.org\")[the site].\n";
+        assert_eq!(p(t), vec!["·A plot of · by ·.·", "See ·the site·."]);
+    }
+
+    #[test]
+    fn includes() {
+        let seg = segment(Lang::Typst, "#include \"chapters/intro.typ\"\nText.\n");
+        assert_eq!(seg.includes, vec!["chapters/intro.typ"]);
     }
 
     #[test]
