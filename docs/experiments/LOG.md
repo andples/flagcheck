@@ -374,3 +374,61 @@ pilots that shaped the tool, not as results.
   environments merge into bigger units). Not tested further.
 - Together with E6a: on LaTeX the model alone loses 5 points of recall; on
   an unseen format, 11 points, while flag volume stays flat.
+
+## L1 - Provisional precision labels from blind Claude labellers (2026-11-18, Claude)
+
+- Commit c6673d4. Sheet `bench/runs/r1/sheet.csv` rebuilt with 30 random
+  clean-paper flags per tool (9 tools: flagcheck b16 pooled over 3 runs,
+  b8, b4, b1, b4 no-mask, LTeX+ default/tuned, Harper default/tuned),
+  merged where spans overlap: 265 items. Guidelines:
+  `docs/experiments/labelling.md`.
+- Labeller A: a Claude subagent (Claude Code, subscription, not the API
+  key) that read only the guidelines and the sheet, labelled all 265.
+  Labeller B: a second, independent subagent, same rules, labelled a
+  random 79-item subset (seed 7). Neither saw tool names. Cost $0 API.
+- Agreement A vs B on 79 items: raw 0.89, Cohen's kappa 0.77 (four
+  labels), 0.82 (G+O vs F+M).
+- Precision per tool from its own 30-flag sample (labeller A):
+
+  | tool | G | O | F | M | strict | lenient |
+  |---|---|---|---|---|---|---|
+  | flagcheck b16 (3 runs) | 0 | 1 | 25 | 4 | 0.00 | 0.03 |
+  | flagcheck b8 | 1 | 4 | 24 | 1 | 0.03 | 0.17 |
+  | flagcheck b4 | 1 | 2 | 26 | 1 | 0.03 | 0.10 |
+  | flagcheck b1 | 1 | 6 | 22 | 1 | 0.03 | 0.23 |
+  | flagcheck b4 no mask | 3 | 1 | 24 | 2 | 0.10 | 0.13 |
+  | LTeX+ tuned | 1 | 9 | 14 | 6 | 0.03 | 0.33 |
+  | LTeX+ default | 0 | 9 | 17 | 4 | 0.00 | 0.30 |
+  | Harper tuned | 0 | 3 | 9 | 18 | 0.00 | 0.10 |
+  | Harper default | 0 | 5 | 14 | 11 | 0.00 | 0.17 |
+
+  95 % Wilson intervals are wide (n = 30; e.g. 0.10 -> 0.03-0.26). Full
+  output: `bench/runs/r1/precision-labels-claude-a.json`.
+- Audit (Claude, not blind, 14 flagcheck items labelled F): the labels
+  hold. Typical false flags are correct sentences: "which obtains",
+  "it increases", "correctly identify", "decouples". This is LLM
+  over-correction appearing in detection.
+- Clean published papers contain few real errors, so precision is low for
+  every tool; the comparable number is non-genuine flags per 1k words
+  (rate x (1 - lenient)): flagcheck b16 ~3.8, b4 ~6.1, b1 ~6.3;
+  LTeX+ tuned ~7.0; Harper tuned ~14.4.
+- Caveat: LLM labellers judging an LLM tool; to be checked against the
+  owner's labels on the same sheet.
+
+## V1 - Voting, simulated on R1's three batch-16 runs (2026-11-18, Claude)
+
+- No new API calls. A flag is kept if overlapping flags appear in at
+  least k of the 3 runs (mask filter applied to clean flags).
+
+  | k of 3 | recall | clean flags / 1k | labelled flagcheck sample kept |
+  |---|---|---|---|
+  | 1 (union) | 0.88 | 9.7 | 30/30 (25 F, 4 M, 1 O) |
+  | 2 | 0.80 | 1.55 | 4/30 (3 F, 1 O) |
+  | 3 | 0.58 | 0.38 | 0/30 |
+
+- 2-of-3 voting keeps recall (0.80, above every single run's 0.72-0.78)
+  while cutting clean flags by about 60 % and removing 26 of the 30
+  labelled flags, nearly all false. False flags are mostly one-off; real
+  errors are flagged consistently (matches the R1 Jaccard of 0.105).
+- Next: batch 4 with 3 runs, to measure voting where single-run recall is
+  highest.
