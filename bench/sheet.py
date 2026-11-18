@@ -22,7 +22,7 @@ from pathlib import Path
 import sys
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from score import DATA, load, mask_filter, overlaps  # noqa: E402
+from score import corpus, load, mask_filter, overlaps  # noqa: E402
 
 ROOT = Path(__file__).resolve().parent
 CONTEXT = 140
@@ -46,7 +46,7 @@ def main() -> None:
     args = ap.parse_args()
     run = ROOT / "runs" / args.run
     rng = random.Random(args.seed)
-    papers = [p["file"] for p in json.loads((ROOT / "corpus" / "manifest.json").read_text())["papers"]]
+    clean_dir, _, papers = corpus(run)
 
     # Every (tool, paper, flag) after the markup filter.
     pool: dict[str, list[tuple[str, dict]]] = {}
@@ -54,7 +54,7 @@ def main() -> None:
         items = []
         for paper in papers:
             for d in dirs:
-                for f in mask_filter(load(run / d / "clean" / f"{paper}.jsonl"), DATA / "papers" / paper):
+                for f in mask_filter(load(run / d / "clean" / f"{paper}.jsonl"), clean_dir / paper):
                     items.append((paper, {**f, "run": d}))
         pool[tool] = items
 
@@ -84,7 +84,7 @@ def main() -> None:
 
     rows, key = [], {}
     for i, m in enumerate(merged, 1):
-        text = (DATA / "papers" / m["paper"]).read_bytes()
+        text = (clean_dir / m["paper"]).read_bytes()
         a, b = m["start"], m["end"]
         ctx = (
             text[max(0, a - CONTEXT) : a].decode(errors="replace")

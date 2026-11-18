@@ -30,6 +30,9 @@ import sys
 import time
 from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from score import CORPORA, corpus  # noqa: E402
+
 ROOT = Path(__file__).resolve().parent
 DATA = ROOT / "data"
 RUNS = ROOT / "runs"
@@ -122,7 +125,8 @@ def harper_lints(src: Path, dialect: str, dictionary: Path) -> list[dict]:
 
 
 def run_harper(paper: str, run_dir: Path) -> dict:
-    clean, injected = DATA / "papers" / paper, DATA / "injected" / paper
+    clean_dir, inj_dir, _ = corpus(run_dir)
+    clean, injected = clean_dir / paper, inj_dir / paper
     empty = run_dir / "harper-empty.dict"
     empty.write_text("")
     info = {}
@@ -158,14 +162,19 @@ def main() -> None:
     ap.add_argument("--tag", default="flagcheck", help="tool name prefix, e.g. fc-b4")
     ap.add_argument("--settings", help="JSON passed to flagcheck --settings")
     ap.add_argument("--variants", default="clean,injected")
+    ap.add_argument("--corpus", choices=list(CORPORA), help="recorded in meta.json on first use")
     args = ap.parse_args()
 
-    manifest = json.loads((ROOT / "corpus" / "manifest.json").read_text())
-    papers = [p["file"] for p in manifest["papers"]]
     run_dir = RUNS / args.run
     run_dir.mkdir(parents=True, exist_ok=True)
     meta_path = run_dir / "meta.json"
     meta = json.loads(meta_path.read_text()) if meta_path.exists() else {}
+    if args.corpus:
+        if meta.get("corpus", args.corpus) != args.corpus:
+            sys.exit(f"run {args.run} uses corpus {meta['corpus']}")
+        meta["corpus"] = args.corpus
+        meta_path.write_text(json.dumps(meta, indent=1) + "\n")
+    clean_dir, inj_dir, papers = corpus(run_dir)
     meta.update(
         {
             "run": args.run,
@@ -194,7 +203,7 @@ def main() -> None:
             tool = f"{args.tag}-r{r}"
             for paper in papers:
                 for variant in args.variants.split(","):
-                    src = DATA / ("papers" if variant == "clean" else "injected") / paper
+                    src = (clean_dir if variant == "clean" else inj_dir) / paper
                     out = run_dir / tool / variant / f"{paper}.jsonl"
                     log = run_dir / tool / "logs" / variant / f"{paper}.jsonl"
                     if out.exists():

@@ -22,6 +22,9 @@ import queue
 import time
 from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from score import corpus  # noqa: E402
+
 ROOT = Path(__file__).resolve().parent
 DATA = ROOT / "data"
 LTEX = Path.home() / ".local/opt/ltex-ls-plus-18.7.0/ltex-ls-plus-18.7.0/bin/ltex-ls-plus"
@@ -86,7 +89,7 @@ class Client:
             self.p.kill()
 
 
-def diagnostics(path: Path, settings: dict) -> list[dict]:
+def diagnostics(path: Path, settings: dict, language_id: str = "latex") -> list[dict]:
     c = Client(settings)
     try:
         rid = c.request(
@@ -100,7 +103,7 @@ def diagnostics(path: Path, settings: dict) -> list[dict]:
         text = path.read_text()
         c.send(
             {"jsonrpc": "2.0", "method": "textDocument/didOpen",
-             "params": {"textDocument": {"uri": uri, "languageId": "latex", "version": 1, "text": text}}}
+             "params": {"textDocument": {"uri": uri, "languageId": language_id, "version": 1, "text": text}}}
         )
         m = c.pump(lambda m: m.get("method") == "textDocument/publishDiagnostics" and m["params"]["uri"] == uri
                    and m["params"].get("diagnostics") is not None and (m["params"]["diagnostics"] or True))
@@ -151,21 +154,22 @@ def settings(lang: str, words: list[str]) -> dict:
 
 def main():
     run = ROOT / "runs" / sys.argv[1]
-    papers = [p["file"] for p in json.loads((ROOT / "corpus" / "manifest.json").read_text())["papers"]]
+    clean_dir, inj_dir, papers = corpus(run)
     meta_path = run / "meta.json"
     meta = json.loads(meta_path.read_text())
     meta["ltex"] = {"version": "ltex-ls-plus 18.7.0", "papers": {}}
     for paper in papers:
-        clean, inj = DATA / "papers" / paper, DATA / "injected" / paper
-        default = diagnostics(clean, settings("en-US", []))
+        clean, inj = clean_dir / paper, inj_dir / paper
+        lid = "latex" if paper.endswith(".tex") else "plaintext"
+        default = diagnostics(clean, settings("en-US", []), lid)
         write(run / "ltex-default" / "clean" / f"{paper}.jsonl", default)
-        write(run / "ltex-default" / "injected" / f"{paper}.jsonl", diagnostics(inj, settings("en-US", [])))
-        gb = diagnostics(clean, settings("en-GB", []))
+        write(run / "ltex-default" / "injected" / f"{paper}.jsonl", diagnostics(inj, settings("en-US", []), lid))
+        gb = diagnostics(clean, settings("en-GB", []), lid)
         lang, base = ("en-GB", gb) if len(gb) < len(default) else ("en-US", default)
         spelled = collections.Counter(f["quote"] for f in base if "MORFOLOGIK" in f["category"])
         words = sorted(w for w, n in spelled.items() if n >= 2)
-        write(run / "ltex-tuned" / "clean" / f"{paper}.jsonl", diagnostics(clean, settings(lang, words)))
-        write(run / "ltex-tuned" / "injected" / f"{paper}.jsonl", diagnostics(inj, settings(lang, words)))
+        write(run / "ltex-tuned" / "clean" / f"{paper}.jsonl", diagnostics(clean, settings(lang, words), lid))
+        write(run / "ltex-tuned" / "injected" / f"{paper}.jsonl", diagnostics(inj, settings(lang, words), lid))
         meta["ltex"]["papers"][paper] = {"language": lang, "dictionary_words": len(words),
                                          "counts": {"en-US": len(default), "en-GB": len(gb)}}
         print(f"ltex {paper}: {lang}, {len(words)} dictionary words, {len(default)} default diagnostics", flush=True)

@@ -26,6 +26,21 @@ ROOT = Path(__file__).resolve().parent
 DATA = ROOT / "data"
 FLAGCHECK = ROOT.parent / "target" / "release" / "flagcheck"
 
+# Corpus name -> (clean dir, injected dir, file extension). A run records
+# its corpus in meta.json; older runs without one used "latex".
+CORPORA = {
+    "latex": ("papers", "injected", ".tex"),
+    "invented": ("invented/clean", "invented/injected", ".glyph"),
+}
+
+
+def corpus(run: Path) -> tuple[Path, Path, list[str]]:
+    meta = run / "meta.json"
+    name = json.loads(meta.read_text()).get("corpus", "latex") if meta.exists() else "latex"
+    c, i, ext = CORPORA[name]
+    manifest = json.loads((ROOT / "corpus" / "manifest.json").read_text())
+    return DATA / c, DATA / i, [p["file"].replace(".tex", ext) for p in manifest["papers"]]
+
 
 def load(path: Path) -> list[dict]:
     return [json.loads(l) for l in path.read_text().splitlines()] if path.exists() else []
@@ -69,10 +84,11 @@ def jaccard(a: list[dict], b: list[dict]) -> float:
 def main() -> None:
     run = ROOT / "runs" / sys.argv[1]
     manifest = json.loads((ROOT / "corpus" / "manifest.json").read_text())
-    papers = manifest["papers"]
+    clean_dir, inj_dir, files = corpus(run)
+    papers = [{**p, "file": f} for p, f in zip(manifest["papers"], files)]
     words = sum(p["prose_words"] for p in papers)
     tools = sorted(d.name for d in run.iterdir() if (d / "clean").is_dir() or (d / "injected").is_dir())
-    gold = {p["file"]: load(DATA / "injected" / (p["file"] + ".gold.jsonl")) for p in papers}
+    gold = {p["file"]: load(inj_dir / (p["file"] + ".gold.jsonl")) for p in papers}
     n_gold = sum(len(g) for g in gold.values())
 
     scores: dict = {"run": run.name, "papers": len(papers), "prose_words": words, "injected": n_gold, "tools": {}}
@@ -88,8 +104,8 @@ def main() -> None:
                 clean = load(run / tool / "clean" / f"{f}.jsonl")
                 inj = load(run / tool / "injected" / f"{f}.jsonl")
                 if filt == "masked":
-                    clean = mask_filter(clean, DATA / "papers" / f)
-                    inj = mask_filter(inj, DATA / "injected" / f)
+                    clean = mask_filter(clean, clean_dir / f)
+                    inj = mask_filter(inj, inj_dir / f)
                 clean_flags += len(clean)
                 for g in gold[f]:
                     if any(overlaps(g, x) for x in inj):
