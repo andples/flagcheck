@@ -28,8 +28,10 @@ pub enum Context {
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, Default, Hash)]
 #[serde(rename_all = "lowercase")]
 pub enum Thinking {
-    #[default]
     Adaptive,
+    /// Default: thinking made live checks 2-3x slower (4-9 s vs 1.6-3 s)
+    /// without catching more in the first real runs.
+    #[default]
     Disabled,
 }
 
@@ -77,7 +79,7 @@ impl Default for Settings {
             base_url: None,
             api_key_env: None,
             effort: None,
-            thinking: Thinking::Adaptive,
+            thinking: Thinking::Disabled,
             debounce_ms: 1500,
             reasons: ReasonMode::Short,
             severity: Severity::Information,

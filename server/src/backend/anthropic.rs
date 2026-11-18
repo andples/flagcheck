@@ -145,7 +145,7 @@ mod tests {
         assert_eq!(b["output_config"]["effort"], "low");
         assert_eq!(b["output_config"]["format"]["type"], "json_schema");
         assert!(b.get("temperature").is_none());
-        assert!(b.get("thinking").is_none());
+        assert_eq!(b["thinking"]["type"], "disabled");
         let content = b["messages"][0]["content"].as_array().unwrap();
         assert_eq!(content[0]["cache_control"]["type"], "ephemeral");
         assert!(content[1]["text"].as_str().unwrap().contains("Teh cat."));

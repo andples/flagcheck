@@ -257,12 +257,17 @@ async fn run(client: Client, state: Arc<Mutex<State>>, uri: Uri) {
             .collect::<Vec<_>>()
     };
 
+    // With document context, the first request writes the prompt cache.
+    // Run it alone so the other batches read the cache instead of each
+    // paying to write it again.
+    let warm_first = batches.len() > 1 && batches[0].0.2.is_some();
+    let mut all_ok = true;
     let mut tasks = vec![];
-    for (job, chunk) in batches {
+    for (n, (job, chunk)) in batches.into_iter().enumerate() {
         let client = client.clone();
         let state = state.clone();
         let uri = uri.clone();
-        tasks.push(tokio::spawn(async move {
+        let handle = tokio::spawn(async move {
             let limit = state.lock().await.limit.clone();
             let _permit = limit.acquire_owned().await;
             let (text, seg, context, lang, settings, backend) = &*job;
@@ -326,9 +331,13 @@ async fn run(client: Client, state: Arc<Mutex<State>>, uri: Uri) {
             };
             publish(&client, &state, &uri).await;
             ok
-        }));
+        });
+        if n == 0 && warm_first {
+            all_ok &= handle.await.unwrap_or(false);
+        } else {
+            tasks.push(handle);
+        }
     }
-    let mut all_ok = true;
     for t in tasks {
         all_ok &= t.await.unwrap_or(false);
     }
