@@ -13,6 +13,7 @@ const USAGE: &str = "\
 usage:
   flagcheck [--stdio]
   flagcheck check [options] FILE...
+  flagcheck segment FILE     paragraphs and mask as JSON byte ranges
 
 options:
   --backend anthropic|openai|mock
@@ -33,6 +34,7 @@ async fn main() -> Result<()> {
             Ok(())
         }
         Some("check") => check(&args[1..]).await,
+        Some("segment") => segment(&args[1..]),
         Some("--version") => {
             println!("flagcheck {}", env!("CARGO_PKG_VERSION"));
             Ok(())
@@ -54,6 +56,26 @@ async fn serve() {
     tower_lsp_server::Server::new(tokio::io::stdin(), tokio::io::stdout(), socket)
         .serve(service)
         .await;
+}
+
+/// Print the segmentation used by the checker, for the benchmark (errors are
+/// injected only into prose) and for debugging the scanners.
+fn segment(args: &[String]) -> Result<()> {
+    let file = args.first().with_context(|| USAGE.to_string())?;
+    let text = std::fs::read_to_string(file).with_context(|| format!("reading {file}"))?;
+    let lang = Lang::from_path(file).with_context(|| format!("unknown file type: {file}"))?;
+    let seg = flagcheck::markup::segment(lang, &text);
+    let r = |v: &[std::ops::Range<usize>]| v.iter().map(|r| [r.start, r.end]).collect::<Vec<_>>();
+    println!(
+        "{}",
+        serde_json::json!({
+            "lang": lang.name(),
+            "paragraphs": r(&seg.paragraphs),
+            "mask": r(&seg.mask),
+            "includes": seg.includes,
+        })
+    );
+    Ok(())
 }
 
 async fn check(args: &[String]) -> Result<()> {
