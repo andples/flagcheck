@@ -146,3 +146,24 @@ pilots that shaped the tool, not as results.
 - Note: all LaTeX. arXiv does not accept Typst sources; Typst and Markdown
   need another source.
 - Download: about 19 MB.
+
+## C2 - Error injection, version 2 (2026-11-18, Claude)
+
+- `bench/inject.py`, VERSION 2. Rule-based, no LLM. Prose only (outside
+  flagcheck's mask), sites at least 40 words apart, one error per ~250
+  prose words, RNG seeded per paper.
+- Operators: spell-swap, spell-drop, spell-double (non-words only, checked
+  against Harper 3.2.0's 138k-word list), agreement (is/are, was/were,
+  has/have, does/do), article (a/an), repetition (short function word),
+  homophone (its/it's, than->then, their->there).
+- Version 1 picked a site first and then an operator: 90 % of errors were
+  misspellings because grammar operators rarely matched the site. Version
+  2 picks the operator first, then a matching site.
+- Result: 278 errors in 10 papers. spell-swap 59, spell-drop 58,
+  spell-double 30, agreement 55, homophone 26, article 25, repetition 25.
+- Known validity problem: some agreement swaps stay acceptable (collective
+  nouns, e.g. "The egregious set were constructed"; "a population of
+  players are"). Needs a validity check; report the invalid rate and
+  exclude invalid items from recall.
+- Uses flagcheck's own mask to place errors. Bias: errors are never placed
+  where flagcheck thinks there is markup. Same for every tool scored.

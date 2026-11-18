@@ -6,6 +6,7 @@ Experiments for the paper. Scripts are committed; downloaded sources
 | Step | Script | Output |
 |---|---|---|
 | Corpus | `corpus.py` | `data/papers/*.tex`, `corpus/manifest.json` |
+| Injection (E2) | `inject.py` | `data/injected/*.tex`, `*.gold.jsonl` |
 
 Corpus rules: arXiv cs papers first submitted July 2026 or later (after the
 models' training cutoff, read from the arXiv identifier), licensed CC BY,
