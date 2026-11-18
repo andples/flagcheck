@@ -23,6 +23,7 @@ options:
   --context document|paragraph
   --votes K --vote-min M
   --settings JSON      any setting, e.g. '{\"base_url\":\"http://localhost:11434/v1\"}'
+  --format NAME        markdown|latex|typst|unknown, instead of the file extension
   --json               JSON lines with byte offsets
   --verbose            also print dropped quotes and usage
   --log PATH           append raw model replies, usage and drops as JSON lines";
@@ -85,6 +86,7 @@ async fn check(args: &[String]) -> Result<()> {
     let mut files = vec![];
     let (mut json, mut verbose) = (false, false);
     let mut log: Option<std::fs::File> = None;
+    let mut format: Option<Lang> = None;
     let mut it = args.iter();
     while let Some(a) = it.next() {
         let mut val = |name: &str| -> Result<String> {
@@ -106,6 +108,10 @@ async fn check(args: &[String]) -> Result<()> {
                 }
             }
             "--json" => json = true,
+            "--format" => {
+                let v = val(a)?;
+                format = Some(Lang::from_language_id(&v).with_context(|| format!("unknown format {v}"))?);
+            }
             "--verbose" => verbose = true,
             "--log" => {
                 let p = val(a)?;
@@ -129,7 +135,10 @@ async fn check(args: &[String]) -> Result<()> {
 
     for file in files {
         let text = std::fs::read_to_string(&file).with_context(|| format!("reading {file}"))?;
-        let lang = Lang::from_path(&file).with_context(|| format!("unknown file type: {file}"))?;
+        let lang = match format {
+            Some(l) => l,
+            None => Lang::from_path(&file).with_context(|| format!("unknown file type: {file}"))?,
+        };
         let path = std::fs::canonicalize(&file).ok();
         let mut doc = Doc::new(lang, path, text, 0);
         let ids: Vec<usize> = (0..doc.seg.paragraphs.len()).collect();

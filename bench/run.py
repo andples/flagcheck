@@ -60,10 +60,10 @@ def write(path: Path, flags: list[dict]) -> None:
 # --- flagcheck -------------------------------------------------------------
 
 
-def run_flagcheck(src: Path, out: Path, log: Path, settings: str | None) -> dict:
+def run_flagcheck(src: Path, out: Path, log: Path, settings: str | None, fmt: str | None = None) -> dict:
     t0 = time.time()
     env = dict(os.environ)
-    extra = ["--settings", settings] if settings else []
+    extra = (["--settings", settings] if settings else []) + (["--format", fmt] if fmt else [])
     p = subprocess.run(
         [FLAGCHECK, "check", "--json", "--log", log, *extra, src], capture_output=True, text=True, env=env
     )
@@ -162,6 +162,7 @@ def main() -> None:
     ap.add_argument("--tag", default="flagcheck", help="tool name prefix, e.g. fc-b4")
     ap.add_argument("--settings", help="JSON passed to flagcheck --settings")
     ap.add_argument("--variants", default="clean,injected")
+    ap.add_argument("--format", help="force flagcheck's format (e.g. unknown: no scanner, no mask)")
     ap.add_argument("--corpus", choices=list(CORPORA), help="recorded in meta.json on first use")
     args = ap.parse_args()
 
@@ -194,6 +195,7 @@ def main() -> None:
             "version": sh(FLAGCHECK, "--version").strip(),
             "commit": commit(),
             "settings": args.settings or "defaults (see DESIGN.md at the commit)",
+            "format": args.format or "from file extension",
             "repeats": args.repeats,
             "variants": args.variants,
             "jobs": {},
@@ -212,7 +214,7 @@ def main() -> None:
                     log.unlink(missing_ok=True)
                     jobs.append((tool, variant, paper, src, out, log))
         with cf.ThreadPoolExecutor(args.jobs) as ex:
-            futs = {ex.submit(run_flagcheck, j[3], j[4], j[5], args.settings): j for j in jobs}
+            futs = {ex.submit(run_flagcheck, j[3], j[4], j[5], args.settings, args.format): j for j in jobs}
             for fut in cf.as_completed(futs):
                 tool, variant, paper, *_ = futs[fut]
                 res = fut.result()
