@@ -309,3 +309,8 @@ pilots that shaped the tool, not as results.
   than to the R1 default.
 - Single runs; R1's run-to-run spread at b16 was 0.72-0.78, far smaller
   than the trend.
+- Batch 1 on the clean copies, run afterwards (same commit): 560 flags,
+  8.2 per 1k words; 1,423 requests, $0.53 (both batch-1 runs together
+  $1.03). Full row: batch 1 = recall 0.93, 8.2 clean flags per 1k words,
+  against LTeX+ tuned 0.76 and 10.4. Clean flag rate by batch size:
+  16: 3.4-4.2, 8: 5.2, 4: 6.8, 1: 8.2.
